@@ -15,6 +15,13 @@
 | Draft automation | An unsaved automation preview generated from a user prompt, with a name, summary, and ordered steps. | Builder |
 | Saved automation candidate | A generated draft automation saved in memory with an ID and creation time, but not executed or persisted across server restart. | Builder |
 
+## Automation Runner
+
+| Term | Meaning | Owner/Context |
+|---|---|---|
+| Automation run | A recorded attempt to run a saved automation, including timestamps, overall status, and per-step results. | Runner |
+| Safe MVP runner | The first runner implementation, which records saved automation steps as completed without controlling the Windows desktop. | Runner |
+
 ## Runtime
 
 | Term | Meaning | Owner/Context |

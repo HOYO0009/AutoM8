@@ -28,6 +28,11 @@ export function createSavedAutomationStore(config: SavedAutomationStoreConfig = 
       return savedAutomations.map(cloneSavedAutomation);
     },
 
+    get(id: string): SavedAutomation | undefined {
+      const savedAutomation = savedAutomations.find((automation) => automation.id === id);
+      return savedAutomation ? cloneSavedAutomation(savedAutomation) : undefined;
+    },
+
     save(draft: unknown): SavedAutomation {
       const validDraft = validateDraft(draft);
       const savedAutomation: SavedAutomation = {

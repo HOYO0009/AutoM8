@@ -4,12 +4,14 @@ import express from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { createAutomationRunStore, RunAutomationError } from "./automationRunStore.js";
 import { createDraftAutomation, DraftGenerationError } from "./draftGenerator.js";
 import { createSavedAutomationStore, SaveAutomationError } from "./savedAutomationStore.js";
 
 const app = express();
 const port = Number(process.env.PORT ?? 8787);
 const savedAutomationStore = createSavedAutomationStore();
+const automationRunStore = createAutomationRunStore();
 
 app.use(express.json({ limit: "64kb" }));
 
@@ -57,6 +59,25 @@ app.post("/api/saved-automations", (request, response) => {
   }
 });
 
+app.post("/api/saved-automations/:id/run", (request, response) => {
+  try {
+    const savedAutomation = savedAutomationStore.get(request.params.id);
+    const run = automationRunStore.run(savedAutomation);
+    response.status(201).json({
+      run,
+      runs: automationRunStore.list()
+    });
+  } catch (error) {
+    const apiError = toApiError(error);
+    response.status(apiError.status).json({
+      error: {
+        code: apiError.code,
+        message: apiError.message
+      }
+    });
+  }
+});
+
 if (process.env.NODE_ENV === "production") {
   const currentFile = fileURLToPath(import.meta.url);
   const currentDir = path.dirname(currentFile);
@@ -82,6 +103,14 @@ function toApiError(error: unknown): { code: string; message: string; status: nu
   }
 
   if (error instanceof SaveAutomationError) {
+    return {
+      code: error.code,
+      message: error.message,
+      status: error.status
+    };
+  }
+
+  if (error instanceof RunAutomationError) {
     return {
       code: error.code,
       message: error.message,

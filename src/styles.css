@@ -348,14 +348,19 @@ h3 {
 }
 
 .saved-item {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  display: grid;
   gap: 12px;
   border: 1px solid #d8dde3;
   border-radius: 8px;
   padding: 12px;
   background: #ffffff;
+}
+
+.saved-item-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .saved-item p {
@@ -364,7 +369,13 @@ h3 {
   line-height: 1.45;
 }
 
-.saved-item span {
+.saved-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.saved-actions > span {
   border: 1px solid #c9d7d1;
   border-radius: 999px;
   padding: 4px 8px;
@@ -373,6 +384,89 @@ h3 {
   font-size: 0.76rem;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.saved-actions button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 12px;
+  color: #ffffff;
+  background: #285f66;
+  font-size: 0.86rem;
+  font-weight: 750;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.saved-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.run-result {
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid #e1e5ea;
+  padding-top: 12px;
+}
+
+.run-result-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.run-result-header > span {
+  color: #667380;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.run-step-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.run-step-list li {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 8px;
+  color: #2f6d3a;
+}
+
+.run-step-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.run-step-title strong {
+  color: #101820;
+  font-size: 0.9rem;
+}
+
+.run-step-title span {
+  color: #67572b;
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.run-step-list p {
+  margin-top: 2px;
+  color: #52606d;
+  font-size: 0.9rem;
+  line-height: 1.4;
 }
 
 .spin {
@@ -422,13 +516,15 @@ h3 {
 
   .draft-title-row,
   .form-footer,
-  .saved-item,
+  .saved-actions,
+  .saved-item-header,
   .step-title-row {
     align-items: stretch;
     flex-direction: column;
   }
 
   .form-footer button,
+  .saved-actions button,
   .save-draft-button {
     width: 100%;
   }

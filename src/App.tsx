@@ -1,10 +1,12 @@
-import { AlertCircle, CheckCircle2, LoaderCircle, Save, Sparkles } from "lucide-react";
+import { AlertCircle, CheckCircle2, LoaderCircle, Play, Save, Sparkles } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import {
   ApiErrorResponse,
+  AutomationRun,
   DraftAutomation,
   DraftAutomationResponse,
+  RunAutomationResponse,
   SavedAutomation,
   SavedAutomationsResponse,
   SaveDraftAutomationResponse
@@ -20,14 +22,28 @@ export function App() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedNotice, setSavedNotice] = useState<string | null>(null);
   const [savedAutomations, setSavedAutomations] = useState<SavedAutomation[]>([]);
+  const [automationRuns, setAutomationRuns] = useState<AutomationRun[]>([]);
+  const [runErrors, setRunErrors] = useState<Record<string, string>>({});
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [runningAutomationId, setRunningAutomationId] = useState<string | null>(null);
 
   const trimmedPrompt = prompt.trim();
   const canGenerate = trimmedPrompt.length > 0 && !isGenerating;
   const promptWordCount = useMemo(() => {
     return trimmedPrompt ? trimmedPrompt.split(/\s+/).length : 0;
   }, [trimmedPrompt]);
+  const latestRunByAutomationId = useMemo(() => {
+    const latestRuns: Record<string, AutomationRun> = {};
+
+    for (const run of automationRuns) {
+      if (!latestRuns[run.automationId]) {
+        latestRuns[run.automationId] = run;
+      }
+    }
+
+    return latestRuns;
+  }, [automationRuns]);
 
   useEffect(() => {
     let isMounted = true;
@@ -124,6 +140,42 @@ export function App() {
     }
   }
 
+  async function handleRunAutomation(automationId: string) {
+    if (runningAutomationId) {
+      return;
+    }
+
+    setRunningAutomationId(automationId);
+    setRunErrors((currentErrors) => {
+      const { [automationId]: _clearedError, ...remainingErrors } = currentErrors;
+      return remainingErrors;
+    });
+
+    try {
+      const response = await fetch(`/api/saved-automations/${automationId}/run`, {
+        method: "POST"
+      });
+      const payload = (await response.json()) as RunAutomationResponse | ApiErrorResponse;
+
+      if (!response.ok || "error" in payload) {
+        setRunErrors((currentErrors) => ({
+          ...currentErrors,
+          [automationId]: "error" in payload ? payload.error.message : "AutoM8 could not run the automation."
+        }));
+        return;
+      }
+
+      setAutomationRuns(payload.runs);
+    } catch {
+      setRunErrors((currentErrors) => ({
+        ...currentErrors,
+        [automationId]: "AutoM8 could not reach the local automation runner."
+      }));
+    } finally {
+      setRunningAutomationId(null);
+    }
+  }
+
   return (
     <main className="app-shell">
       <section className="workspace" aria-label="Automation builder">
@@ -178,7 +230,13 @@ export function App() {
           ) : (
             <EmptyPreview isGenerating={isGenerating} />
           )}
-          <SavedAutomationList savedAutomations={savedAutomations} />
+          <SavedAutomationList
+            savedAutomations={savedAutomations}
+            latestRunByAutomationId={latestRunByAutomationId}
+            onRun={handleRunAutomation}
+            runErrors={runErrors}
+            runningAutomationId={runningAutomationId}
+          />
         </div>
       </section>
     </main>
@@ -248,7 +306,19 @@ function DraftPreview({
   );
 }
 
-function SavedAutomationList({ savedAutomations }: { savedAutomations: SavedAutomation[] }) {
+function SavedAutomationList({
+  savedAutomations,
+  latestRunByAutomationId,
+  onRun,
+  runErrors,
+  runningAutomationId
+}: {
+  savedAutomations: SavedAutomation[];
+  latestRunByAutomationId: Record<string, AutomationRun>;
+  onRun: (automationId: string) => void;
+  runErrors: Record<string, string>;
+  runningAutomationId: string | null;
+}) {
   if (savedAutomations.length === 0) {
     return null;
   }
@@ -260,19 +330,72 @@ function SavedAutomationList({ savedAutomations }: { savedAutomations: SavedAuto
         <h2>Automation candidates</h2>
       </div>
       <ol className="saved-list">
-        {savedAutomations.map((automation) => (
-          <li key={automation.id} className="saved-item">
+        {savedAutomations.map((automation) => {
+          const latestRun = latestRunByAutomationId[automation.id];
+          const runError = runErrors[automation.id];
+          const isRunning = runningAutomationId === automation.id;
+
+          return (
+            <li key={automation.id} className="saved-item">
+              <div className="saved-item-header">
+                <div>
+                  <h3>{automation.name}</h3>
+                  <p>{automation.summary}</p>
+                </div>
+                <div className="saved-actions">
+                  <span>
+                    {automation.steps.length} {automation.steps.length === 1 ? "step" : "steps"}
+                  </span>
+                  <button type="button" onClick={() => onRun(automation.id)} disabled={Boolean(runningAutomationId)}>
+                    {isRunning ? (
+                      <LoaderCircle aria-hidden="true" className="spin" size={16} />
+                    ) : (
+                      <Play aria-hidden="true" size={16} />
+                    )}
+                    Run
+                  </button>
+                </div>
+              </div>
+              {runError ? (
+                <div className="error-box" role="alert">
+                  <AlertCircle aria-hidden="true" size={18} />
+                  <span>{runError}</span>
+                </div>
+              ) : null}
+              {latestRun ? <AutomationRunResult run={latestRun} /> : null}
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  );
+}
+
+function AutomationRunResult({ run }: { run: AutomationRun }) {
+  return (
+    <div className="run-result">
+      <div className="run-result-header">
+        <div>
+          <p className="eyebrow">Latest run</p>
+          <h3>{run.status === "completed" ? "Completed" : "Failed"}</h3>
+        </div>
+        <span>{new Date(run.completedAt).toLocaleTimeString()}</span>
+      </div>
+      <ol className="run-step-list">
+        {run.steps.map((step, index) => (
+          <li key={`${run.id}-${step.title}-${index}`}>
+            <CheckCircle2 aria-hidden="true" size={16} />
             <div>
-              <h3>{automation.name}</h3>
-              <p>{automation.summary}</p>
+              <div className="run-step-title">
+                <strong>{step.title}</strong>
+                <span>{step.nodeType}</span>
+              </div>
+              <p>{step.message}</p>
             </div>
-            <span>
-              {automation.steps.length} {automation.steps.length === 1 ? "step" : "steps"}
-            </span>
           </li>
         ))}
       </ol>
-    </section>
+    </div>
   );
 }
 
