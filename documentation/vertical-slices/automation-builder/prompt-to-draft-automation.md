@@ -3,7 +3,7 @@
 Status: Done
 
 End-to-end behavior:
-- Given a user has a desktop workflow they want to automate
+- Given a user has a desktop workflow they want to automate and configured an OpenRouter model that supports structured outputs
 - When they submit a natural-language prompt
 - Then AutoM8 shows a draft automation with a title, summary, and ordered steps
 - And the draft is not saved or executed yet

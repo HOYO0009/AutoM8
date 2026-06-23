@@ -14,7 +14,7 @@ Prototype phase. Initial target platform is Windows. The first web prototype sli
 ## Quick Start
 
 Prerequisites: Node.js 24 and npm 11.
-Setup: `npm install`, then copy `.env.example` to `.env` and set `OPENROUTER_API_KEY` and `OPENROUTER_MODEL`.
+Setup: `npm install`, then copy `.env.example` to `.env` and set `OPENROUTER_API_KEY` and `OPENROUTER_MODEL`. Use an OpenRouter model that supports structured outputs because draft generation requires a JSON schema response.
 Run: `npm run dev`
 Test: `npm run test`
 
