@@ -1,0 +1,24 @@
+# TODO
+
+## Next Vertical Slices
+
+- [ ] Dashboard: view automations, status, last run, success rate, run duration, and cost indicators.
+- [ ] Automation Builder: record desktop actions to create an automation.
+- [ ] Node Graph Viewer: inspect automation steps, node types, inputs, outputs, fallbacks, and verification logic.
+- [ ] Editing: modify automations through prompting, manual graph edits, or re-recording specific nodes.
+- [ ] Run History: view previous runs, failures, screenshots, logs, token usage, and repair attempts.
+- [ ] Insights: identify flaky nodes, expensive LLM calls, common failure reasons, and optimization opportunities.
+- [ ] Hybrid Runtime: combine deterministic actions with bounded LLM-assisted perception, repair, and reasoning.
+
+## In Progress
+
+- [ ] None.
+
+## Module Integrations
+
+- [ ] None.
+
+## Completed
+
+- [x] Documentation foundation.
+- [x] Automation Builder / Prompt-to-draft automation: create a draft automation from a natural-language prompt.
