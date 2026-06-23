@@ -22,3 +22,4 @@
 
 - [x] Documentation foundation.
 - [x] Automation Builder / Prompt-to-draft automation: create a draft automation from a natural-language prompt.
+- [x] Automation Builder / Save draft automation: save a generated draft as an in-memory automation candidate.

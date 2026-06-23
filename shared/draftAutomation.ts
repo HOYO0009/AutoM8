@@ -20,8 +20,21 @@ export interface DraftAutomation {
   steps: DraftAutomationStep[];
 }
 
+export interface SavedAutomation extends DraftAutomation {
+  id: string;
+  createdAt: string;
+}
+
 export interface DraftAutomationResponse {
   draft: DraftAutomation;
+}
+
+export interface SavedAutomationsResponse {
+  savedAutomations: SavedAutomation[];
+}
+
+export interface SaveDraftAutomationResponse extends SavedAutomationsResponse {
+  savedAutomation: SavedAutomation;
 }
 
 export interface ApiErrorResponse {

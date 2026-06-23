@@ -9,7 +9,7 @@ User goal:
 Let users create, inspect, edit, run, and monitor desktop-wide automations without manually scripting every step.
 
 Current status:
-Prototype phase. Initial target platform is Windows. The first web prototype slice creates an in-memory draft automation from a natural-language prompt through a local OpenRouter-backed API.
+Prototype phase. Initial target platform is Windows. The web prototype creates a draft automation from a natural-language prompt through a local OpenRouter-backed API, then lets the user save the generated draft as an in-memory automation candidate.
 
 ## Quick Start
 
@@ -37,7 +37,7 @@ Test: `npm run test`
 | `GLOSSARY.md` | Project terms and domain language. |
 | `PATTERN.md` | Actual patterns observed in the codebase. |
 | `PRINCIPLE.md` | Durable coding lessons learned from verified project work. |
-| `documentation/vertical-slices/automation-builder/` | Automation Builder slice notes. |
-| `server/` | Local API and OpenRouter draft generation. |
+| `documentation/vertical-slices/automation-builder/` | Automation Builder module behavior and slice notes. |
+| `server/` | Local API, OpenRouter draft generation, and in-memory saved automation storage. |
 | `shared/` | Types shared by the frontend and backend. |
 | `src/` | React web prototype. |

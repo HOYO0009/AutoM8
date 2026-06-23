@@ -1,7 +1,14 @@
-import { AlertCircle, LoaderCircle, Sparkles } from "lucide-react";
-import { FormEvent, useMemo, useState } from "react";
+import { AlertCircle, CheckCircle2, LoaderCircle, Save, Sparkles } from "lucide-react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
-import { ApiErrorResponse, DraftAutomation, DraftAutomationResponse } from "../shared/draftAutomation";
+import {
+  ApiErrorResponse,
+  DraftAutomation,
+  DraftAutomationResponse,
+  SavedAutomation,
+  SavedAutomationsResponse,
+  SaveDraftAutomationResponse
+} from "../shared/draftAutomation";
 
 const examplePrompt =
   "Every morning, open the sales spreadsheet, collect yesterday's total revenue, and draft a short email summary for the team.";
@@ -10,13 +17,40 @@ export function App() {
   const [prompt, setPrompt] = useState(examplePrompt);
   const [draft, setDraft] = useState<DraftAutomation | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [savedNotice, setSavedNotice] = useState<string | null>(null);
+  const [savedAutomations, setSavedAutomations] = useState<SavedAutomation[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const trimmedPrompt = prompt.trim();
   const canGenerate = trimmedPrompt.length > 0 && !isGenerating;
   const promptWordCount = useMemo(() => {
     return trimmedPrompt ? trimmedPrompt.split(/\s+/).length : 0;
   }, [trimmedPrompt]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadSavedAutomations() {
+      try {
+        const response = await fetch("/api/saved-automations");
+        const payload = (await response.json()) as SavedAutomationsResponse | ApiErrorResponse;
+
+        if (isMounted && response.ok && !("error" in payload)) {
+          setSavedAutomations(payload.savedAutomations);
+        }
+      } catch {
+        // Saved automations are still available after the next successful save.
+      }
+    }
+
+    void loadSavedAutomations();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -27,6 +61,8 @@ export function App() {
 
     setIsGenerating(true);
     setError(null);
+    setSaveError(null);
+    setSavedNotice(null);
 
     try {
       const response = await fetch("/api/draft-automation", {
@@ -51,6 +87,40 @@ export function App() {
       setError("AutoM8 could not reach the local draft API.");
     } finally {
       setIsGenerating(false);
+    }
+  }
+
+  async function handleSaveDraft() {
+    if (!draft || isSaving) {
+      return;
+    }
+
+    setIsSaving(true);
+    setSaveError(null);
+    setSavedNotice(null);
+
+    try {
+      const response = await fetch("/api/saved-automations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ draft })
+      });
+
+      const payload = (await response.json()) as SaveDraftAutomationResponse | ApiErrorResponse;
+
+      if (!response.ok || "error" in payload) {
+        setSaveError("error" in payload ? payload.error.message : "AutoM8 could not save the draft.");
+        return;
+      }
+
+      setSavedAutomations(payload.savedAutomations);
+      setSavedNotice(`Saved "${payload.savedAutomation.name}".`);
+    } catch {
+      setSaveError("AutoM8 could not reach the local saved automation API.");
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -97,20 +167,67 @@ export function App() {
         </div>
 
         <div className="preview-pane" aria-live="polite">
-          {draft ? <DraftPreview draft={draft} /> : <EmptyPreview isGenerating={isGenerating} />}
+          {draft ? (
+            <DraftPreview
+              draft={draft}
+              isSaving={isSaving}
+              onSave={handleSaveDraft}
+              saveError={saveError}
+              savedNotice={savedNotice}
+            />
+          ) : (
+            <EmptyPreview isGenerating={isGenerating} />
+          )}
+          <SavedAutomationList savedAutomations={savedAutomations} />
         </div>
       </section>
     </main>
   );
 }
 
-function DraftPreview({ draft }: { draft: DraftAutomation }) {
+function DraftPreview({
+  draft,
+  isSaving,
+  onSave,
+  saveError,
+  savedNotice
+}: {
+  draft: DraftAutomation;
+  isSaving: boolean;
+  onSave: () => void;
+  saveError: string | null;
+  savedNotice: string | null;
+}) {
   return (
     <article className="draft-preview">
       <header className="draft-header">
-        <p className="eyebrow">Draft automation</p>
-        <h2>{draft.name}</h2>
+        <div className="draft-title-row">
+          <div>
+            <p className="eyebrow">Draft automation</p>
+            <h2>{draft.name}</h2>
+          </div>
+          <button className="save-draft-button" type="button" onClick={onSave} disabled={isSaving}>
+            {isSaving ? (
+              <LoaderCircle aria-hidden="true" className="spin" size={18} />
+            ) : (
+              <Save aria-hidden="true" size={18} />
+            )}
+            Save draft
+          </button>
+        </div>
         <p>{draft.summary}</p>
+        {savedNotice ? (
+          <div className="notice-box" role="status">
+            <CheckCircle2 aria-hidden="true" size={18} />
+            <span>{savedNotice}</span>
+          </div>
+        ) : null}
+        {saveError ? (
+          <div className="error-box" role="alert">
+            <AlertCircle aria-hidden="true" size={18} />
+            <span>{saveError}</span>
+          </div>
+        ) : null}
       </header>
 
       <ol className="step-list">
@@ -128,6 +245,34 @@ function DraftPreview({ draft }: { draft: DraftAutomation }) {
         ))}
       </ol>
     </article>
+  );
+}
+
+function SavedAutomationList({ savedAutomations }: { savedAutomations: SavedAutomation[] }) {
+  if (savedAutomations.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="saved-automations" aria-label="Saved automations">
+      <div>
+        <p className="eyebrow">Saved automations</p>
+        <h2>Automation candidates</h2>
+      </div>
+      <ol className="saved-list">
+        {savedAutomations.map((automation) => (
+          <li key={automation.id} className="saved-item">
+            <div>
+              <h3>{automation.name}</h3>
+              <p>{automation.summary}</p>
+            </div>
+            <span>
+              {automation.steps.length} {automation.steps.length === 1 ? "step" : "steps"}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 
