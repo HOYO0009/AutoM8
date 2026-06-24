@@ -1,6 +1,6 @@
 import { DraftAutomation, nodeTypes } from "../shared/draftAutomation.js";
+import { requestOpenRouterStructuredOutput } from "./openRouterStructuredOutput.js";
 
-const DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 const LLM_REQUEST_TIMEOUT_MS = 30_000;
 const INVALID_LLM_RESPONSE_MESSAGE =
   "The configured draft generator did not return the required draft automation shape. Choose an OpenRouter model that supports structured outputs, then try again.";
@@ -91,66 +91,46 @@ export async function createDraftAutomation(
     );
   }
 
-  const fetchImpl = config.fetchImpl ?? fetch;
-  const baseUrl = (config.baseUrl ?? DEFAULT_OPENROUTER_BASE_URL).replace(/\/+$/, "");
-  const abortController = new AbortController();
-  const timeout = setTimeout(() => abortController.abort(), LLM_REQUEST_TIMEOUT_MS);
-
-  try {
-    const response = await fetchImpl(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${config.apiKey}`,
-        "Content-Type": "application/json",
-        "X-Title": "AutoM8"
+  const result = await requestOpenRouterStructuredOutput({
+    apiKey: config.apiKey,
+    model: config.model,
+    baseUrl: config.baseUrl,
+    fetchImpl: config.fetchImpl,
+    schema: DRAFT_AUTOMATION_SCHEMA,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You create concise draft desktop automations for AutoM8. Return only JSON that matches the provided schema. Each step must include title, nodeType, and description. nodeType must be one of deterministic, perception, llm, control, verification."
       },
-      body: JSON.stringify({
-        model: config.model,
-        messages: [
-          {
-            role: "system",
-            content:
-              "You create concise draft desktop automations for AutoM8. Return only JSON that matches the provided schema. Each step must include title, nodeType, and description. nodeType must be one of deterministic, perception, llm, control, verification."
-          },
-          {
-            role: "user",
-            content: `Draft an automation from this workflow description:\n\n${trimmedPrompt}`
-          }
-        ],
-        provider: { require_parameters: true },
-        response_format: {
-          type: "json_schema",
-          json_schema: DRAFT_AUTOMATION_SCHEMA
-        },
-        temperature: 0.2
-      }),
-      signal: abortController.signal
-    });
+      {
+        role: "user",
+        content: `Draft an automation from this workflow description:\n\n${trimmedPrompt}`
+      }
+    ],
+    temperature: 0.2,
+    timeoutMs: LLM_REQUEST_TIMEOUT_MS,
+    providerErrorFallback: "The configured draft generator rejected the request."
+  });
 
-    const payload = await readJson(response);
-
-    if (!response.ok) {
-      throw new DraftGenerationError(
-        "LLM_REQUEST_FAILED",
-        providerErrorMessage(payload),
-        502
-      );
+  if (!result.ok) {
+    if (result.kind === "provider") {
+      throw new DraftGenerationError("LLM_REQUEST_FAILED", result.message, 502);
     }
 
-    const content = extractAssistantContent(payload, config.model, response.status);
-    const parsedDraft = parseAssistantJson(content, config.model, response.status);
-
-    return validateDraftAutomation(parsedDraft, config.model, response.status);
-  } catch (error) {
-    if (error instanceof DraftGenerationError) {
-      throw error;
-    }
-
-    if (abortController.signal.aborted || isAbortError(error)) {
+    if (result.kind === "timeout") {
       throw new DraftGenerationError(
         "LLM_REQUEST_TIMEOUT",
         "The configured draft generator took too long to respond. Try again or choose a faster OpenRouter model.",
         504
+      );
+    }
+
+    if (result.kind === "invalid_json") {
+      throw invalidResponseError(
+        config.model,
+        result.stage ?? "assistant-json",
+        result.providerStatus ?? 200
       );
     }
 
@@ -159,61 +139,9 @@ export async function createDraftAutomation(
       "AutoM8 could not reach the configured draft generator.",
       502
     );
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-async function readJson(response: Response): Promise<unknown> {
-  try {
-    return await response.json();
-  } catch (error) {
-    if (isAbortError(error)) {
-      throw error;
-    }
-
-    return undefined;
-  }
-}
-
-function providerErrorMessage(payload: unknown): string {
-  if (isRecord(payload) && isRecord(payload.error) && typeof payload.error.message === "string") {
-    return payload.error.message;
   }
 
-  return "The configured draft generator rejected the request.";
-}
-
-function extractAssistantContent(payload: unknown, model: string, providerStatus: number): string {
-  if (!isRecord(payload)) {
-    throw invalidResponseError(model, "provider-payload", providerStatus);
-  }
-
-  const firstChoice = Array.isArray(payload.choices) ? payload.choices[0] : undefined;
-  if (!isRecord(firstChoice) || !isRecord(firstChoice.message)) {
-    throw invalidResponseError(model, "assistant-message", providerStatus);
-  }
-
-  const { content } = firstChoice.message;
-  if (typeof content !== "string" || !content.trim()) {
-    throw invalidResponseError(model, "assistant-content", providerStatus);
-  }
-
-  return content;
-}
-
-function parseAssistantJson(content: string, model: string, providerStatus: number): unknown {
-  try {
-    return JSON.parse(stripJsonFence(content));
-  } catch {
-    throw invalidResponseError(model, "assistant-json", providerStatus);
-  }
-}
-
-function stripJsonFence(content: string): string {
-  const trimmed = content.trim();
-  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
-  return fenced ? fenced[1].trim() : trimmed;
+  return validateDraftAutomation(result.parsedJson, config.model, result.providerStatus);
 }
 
 function validateDraftAutomation(value: unknown, model: string, providerStatus: number): DraftAutomation {
@@ -286,10 +214,6 @@ function invalidResponseError(
     INVALID_LLM_RESPONSE_MESSAGE,
     502
   );
-}
-
-function isAbortError(error: unknown): boolean {
-  return error instanceof DOMException && error.name === "AbortError";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

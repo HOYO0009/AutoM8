@@ -6,8 +6,8 @@ import {
   ExecutableAutomationStep,
   SavedAutomation
 } from "../shared/draftAutomation.js";
+import { requestOpenRouterStructuredOutput } from "./openRouterStructuredOutput.js";
 
-const DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 const PLAN_REQUEST_TIMEOUT_MS = 30_000;
 const EXECUTION_PLAN_SCHEMA = {
   name: "ExecutableAutomationPlan",
@@ -203,67 +203,39 @@ async function planWithModel(
   automation: SavedAutomation,
   config: Required<Pick<ExecutionPlannerConfig, "apiKey" | "model">> & ExecutionPlannerConfig
 ): Promise<ExecutableAutomationPlan> {
-  const fetchImpl = config.fetchImpl ?? fetch;
-  const baseUrl = (config.baseUrl ?? DEFAULT_OPENROUTER_BASE_URL).replace(/\/+$/, "");
-  const abortController = new AbortController();
-  const timeout = setTimeout(() => abortController.abort(), PLAN_REQUEST_TIMEOUT_MS);
-
-  try {
-    const response = await fetchImpl(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${config.apiKey}`,
-        "Content-Type": "application/json",
-        "X-Title": "AutoM8"
+  const result = await requestOpenRouterStructuredOutput({
+    apiKey: config.apiKey,
+    model: config.model,
+    baseUrl: config.baseUrl,
+    fetchImpl: config.fetchImpl,
+    schema: EXECUTION_PLAN_SCHEMA,
+    messages: [
+      {
+        role: "system",
+        content:
+          "Convert saved AutoM8 desktop automation steps into a safe executable plan. Use deterministic DSL actions when concrete. Use llm_desktop_task for ambiguous perception or UI navigation. Insert approval_gate before any external side effect such as sending email, creating calendar events, submitting forms, deleting data, uploading files, purchases, or permission changes. Never emit shell commands."
       },
-      body: JSON.stringify({
-        model: config.model,
-        messages: [
-          {
-            role: "system",
-            content:
-              "Convert saved AutoM8 desktop automation steps into a safe executable plan. Use deterministic DSL actions when concrete. Use llm_desktop_task for ambiguous perception or UI navigation. Insert approval_gate before any external side effect such as sending email, creating calendar events, submitting forms, deleting data, uploading files, purchases, or permission changes. Never emit shell commands."
-          },
-          {
-            role: "user",
-            content: JSON.stringify({
-              id: automation.id,
-              name: automation.name,
-              summary: automation.summary,
-              steps: automation.steps
-            })
-          }
-        ],
-        provider: { require_parameters: true },
-        response_format: {
-          type: "json_schema",
-          json_schema: EXECUTION_PLAN_SCHEMA
-        },
-        temperature: 0.1
-      }),
-      signal: abortController.signal
-    });
+      {
+        role: "user",
+        content: JSON.stringify({
+          id: automation.id,
+          name: automation.name,
+          summary: automation.summary,
+          steps: automation.steps
+        })
+      }
+    ],
+    temperature: 0.1,
+    timeoutMs: PLAN_REQUEST_TIMEOUT_MS,
+    providerErrorFallback: "The configured execution planner rejected the request."
+  });
 
-    const payload = await readJson(response);
-
-    if (!response.ok) {
-      throw new ExecutionPlanningError(
-        "PLANNER_REQUEST_FAILED",
-        providerErrorMessage(payload),
-        502
-      );
+  if (!result.ok) {
+    if (result.kind === "provider") {
+      throw new ExecutionPlanningError("PLANNER_REQUEST_FAILED", result.message, 502);
     }
 
-    const content = extractAssistantContent(payload, config.model, response.status);
-    const parsedPlan = parseAssistantJson(content, config.model, response.status);
-
-    return validateExecutablePlan(automation, parsedPlan, config.model, response.status);
-  } catch (error) {
-    if (error instanceof ExecutionPlanningError) {
-      throw error;
-    }
-
-    if (abortController.signal.aborted || isAbortError(error)) {
+    if (result.kind === "timeout") {
       throw new ExecutionPlanningError(
         "PLANNER_REQUEST_TIMEOUT",
         "The configured execution planner took too long to respond.",
@@ -271,14 +243,18 @@ async function planWithModel(
       );
     }
 
+    if (result.kind === "invalid_json") {
+      throw invalidPlanError(config.model, result.stage ?? "assistant-json", result.providerStatus ?? 200);
+    }
+
     throw new ExecutionPlanningError(
       "PLANNER_REQUEST_FAILED",
       "AutoM8 could not reach the configured execution planner.",
       502
     );
-  } finally {
-    clearTimeout(timeout);
   }
+
+  return validateExecutablePlan(automation, result.parsedJson, config.model, result.providerStatus);
 }
 
 export function validateExecutablePlan(
@@ -422,58 +398,6 @@ function actionText(action: ExecutableAction): string {
 const riskyPattern =
   /\b(send|email|mail|schedule|calendar|appointment|meeting|event|submit|delete|remove|cancel|upload|purchase|buy|pay|permission|share|post)\b/i;
 
-async function readJson(response: Response): Promise<unknown> {
-  try {
-    return await response.json();
-  } catch (error) {
-    if (isAbortError(error)) {
-      throw error;
-    }
-
-    return undefined;
-  }
-}
-
-function providerErrorMessage(payload: unknown): string {
-  if (isRecord(payload) && isRecord(payload.error) && typeof payload.error.message === "string") {
-    return payload.error.message;
-  }
-
-  return "The configured execution planner rejected the request.";
-}
-
-function extractAssistantContent(payload: unknown, model: string, providerStatus: number): string {
-  if (!isRecord(payload)) {
-    throw invalidPlanError(model, "provider-payload", providerStatus);
-  }
-
-  const firstChoice = Array.isArray(payload.choices) ? payload.choices[0] : undefined;
-  if (!isRecord(firstChoice) || !isRecord(firstChoice.message)) {
-    throw invalidPlanError(model, "assistant-message", providerStatus);
-  }
-
-  const { content } = firstChoice.message;
-  if (typeof content !== "string" || !content.trim()) {
-    throw invalidPlanError(model, "assistant-content", providerStatus);
-  }
-
-  return content;
-}
-
-function parseAssistantJson(content: string, model: string, providerStatus: number): unknown {
-  try {
-    return JSON.parse(stripJsonFence(content));
-  } catch {
-    throw invalidPlanError(model, "assistant-json", providerStatus);
-  }
-}
-
-function stripJsonFence(content: string): string {
-  const trimmed = content.trim();
-  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
-  return fenced ? fenced[1].trim() : trimmed;
-}
-
 function invalidPlanError(
   model: string,
   stage: string,
@@ -530,10 +454,6 @@ function isNodeType(value: unknown): value is DraftNodeType {
     value === "control" ||
     value === "verification"
   );
-}
-
-function isAbortError(error: unknown): boolean {
-  return error instanceof DOMException && error.name === "AbortError";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

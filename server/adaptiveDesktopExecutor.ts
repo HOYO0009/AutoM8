@@ -1,8 +1,8 @@
 import { ExecutableAction } from "../shared/draftAutomation.js";
 import { DesktopDriver, DesktopObservation } from "./desktopDriver.js";
 import { validateAction } from "./executionPlanner.js";
+import { requestOpenRouterStructuredOutput } from "./openRouterStructuredOutput.js";
 
-const DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 const ADAPTIVE_REQUEST_TIMEOUT_MS = 30_000;
 const ADAPTIVE_ACTION_SCHEMA = {
   name: "AdaptiveDesktopAction",
@@ -229,141 +229,84 @@ async function requestNextAction(
   phase: "action" | "verification",
   config: Required<Pick<AdaptiveDesktopExecutorConfig, "apiKey" | "model">> & AdaptiveDesktopExecutorConfig
 ): Promise<{ decision: "act" | "complete" | "fail"; reason: string; action?: unknown }> {
-  const fetchImpl = config.fetchImpl ?? fetch;
-  const baseUrl = (config.baseUrl ?? DEFAULT_OPENROUTER_BASE_URL).replace(/\/+$/, "");
-  const abortController = new AbortController();
-  const timeout = setTimeout(() => abortController.abort(), ADAPTIVE_REQUEST_TIMEOUT_MS);
-
-  try {
-    const response = await fetchImpl(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${config.apiKey}`,
-        "Content-Type": "application/json",
-        "X-Title": "AutoM8"
+  const result = await requestOpenRouterStructuredOutput({
+    apiKey: config.apiKey,
+    model: config.model,
+    baseUrl: config.baseUrl,
+    fetchImpl: config.fetchImpl,
+    schema: ADAPTIVE_ACTION_SCHEMA,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are controlling a Windows desktop through a safe AutoM8 action API. Return exactly one decision. Use complete only when the fresh screenshot and accessibility evidence prove the goal is done, fail if impossible from the evidence, or act with one allowed action. Do not request shell commands."
       },
-      body: JSON.stringify({
-        model: config.model,
-        messages: [
+      {
+        role: "user",
+        content: [
           {
-            role: "system",
-            content:
-              "You are controlling a Windows desktop through a safe AutoM8 action API. Return exactly one decision. Use complete only when the fresh screenshot and accessibility evidence prove the goal is done, fail if impossible from the evidence, or act with one allowed action. Do not request shell commands."
+            type: "text",
+            text: JSON.stringify({
+              goal,
+              phase,
+              instruction:
+                phase === "action"
+                  ? "Choose exactly one bounded desktop action from this evidence."
+                  : "Verify whether the goal is complete from this fresh evidence. Return act only if another retry is needed.",
+              observation: {
+                summary: observation.summary,
+                accessibility: observation.accessibility
+              }
+            })
           },
           {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify({
-                  goal,
-                  phase,
-                  instruction:
-                    phase === "action"
-                      ? "Choose exactly one bounded desktop action from this evidence."
-                      : "Verify whether the goal is complete from this fresh evidence. Return act only if another retry is needed.",
-                  observation: {
-                    summary: observation.summary,
-                    accessibility: observation.accessibility
-                  }
-                })
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: observation.screenshotDataUrl
-                }
-              }
-            ]
+            type: "image_url",
+            image_url: {
+              url: observation.screenshotDataUrl
+            }
           }
-        ],
-        provider: { require_parameters: true },
-        response_format: {
-          type: "json_schema",
-          json_schema: ADAPTIVE_ACTION_SCHEMA
-        },
-        temperature: 0.1
-      }),
-      signal: abortController.signal
-    });
+        ]
+      }
+    ],
+    temperature: 0.1,
+    timeoutMs: ADAPTIVE_REQUEST_TIMEOUT_MS,
+    providerErrorFallback: "The configured adaptive desktop model rejected the request."
+  });
 
-    const payload = await readJson(response);
-    if (!response.ok) {
+  if (!result.ok) {
+    if (result.kind === "provider") {
       return {
         decision: "fail",
-        reason: providerErrorMessage(payload)
-      };
-    }
-
-    const content = extractAssistantContent(payload);
-    const parsed = JSON.parse(stripJsonFence(content));
-    if (!isRecord(parsed) || !isDecision(parsed.decision) || typeof parsed.reason !== "string") {
-      return {
-        decision: "fail",
-        reason: "The model returned an invalid adaptive desktop decision."
-      };
-    }
-
-    return {
-      decision: parsed.decision,
-      reason: parsed.reason,
-      action: parsed.action
-    };
-  } catch (error) {
-    if (abortController.signal.aborted || isAbortError(error)) {
-      return {
-        decision: "fail",
-        reason: "The model took too long to choose the next desktop action."
+        reason: result.message
       };
     }
 
     return {
       decision: "fail",
-      reason: "AutoM8 could not reach the configured adaptive desktop model."
+      reason:
+        result.kind === "timeout"
+          ? "The model took too long to choose the next desktop action."
+          : "AutoM8 could not reach the configured adaptive desktop model."
     };
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-async function readJson(response: Response): Promise<unknown> {
-  try {
-    return await response.json();
-  } catch (error) {
-    if (isAbortError(error)) {
-      throw error;
-    }
-
-    return undefined;
-  }
-}
-
-function providerErrorMessage(payload: unknown): string {
-  if (isRecord(payload) && isRecord(payload.error) && typeof payload.error.message === "string") {
-    return payload.error.message;
   }
 
-  return "The configured adaptive desktop model rejected the request.";
-}
+  const parsed = result.parsedJson;
+  if (!isRecord(parsed) || !isDecision(parsed.decision) || typeof parsed.reason !== "string") {
+    return {
+      decision: "fail",
+      reason: "The model returned an invalid adaptive desktop decision."
+    };
+  }
 
-function extractAssistantContent(payload: unknown): string {
-  const firstChoice = isRecord(payload) && Array.isArray(payload.choices) ? payload.choices[0] : undefined;
-  const content = isRecord(firstChoice) && isRecord(firstChoice.message) ? firstChoice.message.content : undefined;
-  return typeof content === "string" ? content : "";
-}
-
-function stripJsonFence(content: string): string {
-  const trimmed = content.trim();
-  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
-  return fenced ? fenced[1].trim() : trimmed;
+  return {
+    decision: parsed.decision,
+    reason: parsed.reason,
+    action: parsed.action
+  };
 }
 
 function isDecision(value: unknown): value is "act" | "complete" | "fail" {
   return value === "act" || value === "complete" || value === "fail";
-}
-
-function isAbortError(error: unknown): boolean {
-  return error instanceof DOMException && error.name === "AbortError";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
