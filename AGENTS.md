@@ -13,8 +13,8 @@
 - `README.md` explains project vision, status, structure, and commands.
 - `TODO.md` tracks slice and integration work.
 - `GLOSSARY.md` owns project terms.
-- `PATTERN.md` records actual patterns used in the codebase.
-- `PRINCIPLE.md` records durable coding lessons learned from verified project work.
+- `PATTERN.md` records only GoF-style design patterns with `Used` or concrete `Planned` status.
+- `PRINCIPLE.md` records coding/design principles with `Used` or concrete `Planned` status.
 - `documentation/vertical-slices/<module>/<slice>.md` owns one end-to-end behavior when a slice exists.
 - `documentation/vertical-slices/<module>/README.md` owns integrated module behavior when a module exists.
 

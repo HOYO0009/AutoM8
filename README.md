@@ -35,8 +35,8 @@ Test: `npm run test`
 | `AGENTS.md` | Agent workflow, documentation routing, and safety rules. |
 | `TODO.md` | Planned vertical slices, integration work, and completed work. |
 | `GLOSSARY.md` | Project terms and domain language. |
-| `PATTERN.md` | Actual patterns observed in the codebase. |
-| `PRINCIPLE.md` | Durable coding lessons learned from verified project work. |
+| `PATTERN.md` | GoF-style design patterns with `Used` or concrete `Planned` status. |
+| `PRINCIPLE.md` | Coding/design principles with `Used` or concrete `Planned` status. |
 | `documentation/vertical-slices/automation-builder/` | Automation Builder module behavior and slice notes. |
 | `documentation/vertical-slices/automation-runner/` | Automation Runner slice notes. |
 | `server/` | Local API, OpenRouter draft generation, in-memory saved automation storage, and safe in-memory automation runs. |
