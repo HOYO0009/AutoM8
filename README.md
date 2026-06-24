@@ -34,11 +34,12 @@ Test: `npm run test`
 | `README.md` | Project vision, user goal, current status, and commands. |
 | `AGENTS.md` | Agent workflow, documentation routing, and safety rules. |
 | `TODO.md` | Planned vertical slices, integration work, and completed work. |
-| `GLOSSARY.md` | Project terms and domain language. |
+| `DDD.md` | Domain language, glossary terms, domain concepts, and naming conventions. |
 | `PATTERN.md` | GoF-style design patterns with `Used` or concrete `Planned` status. |
-| `PRINCIPLE.md` | Coding/design principles with `Used` or concrete `Planned` status. |
+| `TDD.md` | Test strategy, pyramid balance, coverage evidence, and testing gaps. |
 | `documentation/vertical-slices/automation-builder/` | Automation Builder module behavior and slice notes. |
 | `documentation/vertical-slices/automation-runner/` | Automation Runner module behavior and slice notes. |
+| `graphify-out/` | Generated Graphify code graph report, interactive graph, and raw graph data. |
 | `server/` | Local API composition entrypoint and backend modules. |
 | `server/automation-builder/` | OpenRouter draft generation and in-memory saved automation candidate storage. |
 | `server/automation-runner/` | Executable action planning, run state, approval gates, and non-deterministic desktop tasks with screenshot/accessibility perception. |

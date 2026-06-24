@@ -1,0 +1,177 @@
+{
+  "package.json": {
+    "mtime": 1782289856.1764617,
+    "ast_hash": "d85ad9458e953b663afe0d0725137253",
+    "semantic_hash": ""
+  },
+  "server/automation-builder/draftGenerator.test.ts": {
+    "mtime": 1782263976.264816,
+    "ast_hash": "6e382e52c11aa36c7263c55ad70b5445",
+    "semantic_hash": ""
+  },
+  "server/automation-builder/draftGenerator.ts": {
+    "mtime": 1782288259.2287602,
+    "ast_hash": "bfa90a4a51247d0844c712362ce65b0a",
+    "semantic_hash": ""
+  },
+  "server/automation-builder/savedAutomationCandidateStore.test.ts": {
+    "mtime": 1782288762.4501014,
+    "ast_hash": "8a2ad677ea495e82dad440173edf32fe",
+    "semantic_hash": ""
+  },
+  "server/automation-builder/savedAutomationCandidateStore.ts": {
+    "mtime": 1782288762.4470987,
+    "ast_hash": "6adf75a5783208ae95afb2c2da2cd014",
+    "semantic_hash": ""
+  },
+  "server/automation-runner/automationRunStore.test.ts": {
+    "mtime": 1782288863.2446697,
+    "ast_hash": "763f56d4f4eeaf7fe37574b515bac15b",
+    "semantic_hash": ""
+  },
+  "server/automation-runner/automationRunStore.ts": {
+    "mtime": 1782288839.4626265,
+    "ast_hash": "32a0f4ecb7d6b8705cfdbd8031c952a0",
+    "semantic_hash": ""
+  },
+  "server/automation-runner/executableActionPlanner.test.ts": {
+    "mtime": 1782288950.358917,
+    "ast_hash": "91b32d611cc58bcda66265471fcb9609",
+    "semantic_hash": ""
+  },
+  "server/automation-runner/executableActionPlanner.ts": {
+    "mtime": 1782288945.880925,
+    "ast_hash": "c66b042fa86515c4d9fff739cf65fe45",
+    "semantic_hash": ""
+  },
+  "server/automation-runner/nonDeterministicDesktopTaskRunner.test.ts": {
+    "mtime": 1782288839.471624,
+    "ast_hash": "55957913c25827036c144f41437aebbd",
+    "semantic_hash": ""
+  },
+  "server/automation-runner/nonDeterministicDesktopTaskRunner.ts": {
+    "mtime": 1782288939.8974133,
+    "ast_hash": "c83d7abbcdd5fb046ad216a7286b078c",
+    "semantic_hash": ""
+  },
+  "server/desktop/desktopDriver.ts": {
+    "mtime": 1782281750.655804,
+    "ast_hash": "0a9222cfba85520738cc2f823108eed7",
+    "semantic_hash": ""
+  },
+  "server/index.ts": {
+    "mtime": 1782288807.7223718,
+    "ast_hash": "a50ed60ad2d9bcdb54ca0d81da288527",
+    "semantic_hash": ""
+  },
+  "server/llm/openRouterStructuredOutput.ts": {
+    "mtime": 1782287412.038545,
+    "ast_hash": "8a58a76f77978daf0e9a2c854a5302cf",
+    "semantic_hash": ""
+  },
+  "shared/draftAutomation.ts": {
+    "mtime": 1782288762.4310932,
+    "ast_hash": "18c20d172c8bfd2b0e8118aa144b7f8f",
+    "semantic_hash": ""
+  },
+  "src/App.tsx": {
+    "mtime": 1782288762.435091,
+    "ast_hash": "3519a01a6efbec53fced3eec0d3abf67",
+    "semantic_hash": ""
+  },
+  "src/main.tsx": {
+    "mtime": 1782263976.2708223,
+    "ast_hash": "ddad06106473987cd80e7592fb82f5b4",
+    "semantic_hash": ""
+  },
+  "tsconfig.json": {
+    "mtime": 1782263976.2718213,
+    "ast_hash": "43694730e5c5e37efde90a22b9ad14b5",
+    "semantic_hash": ""
+  },
+  "tsconfig.server.json": {
+    "mtime": 1782263976.2728362,
+    "ast_hash": "cb970ed9f3f3012e184afaa6fcb41042",
+    "semantic_hash": ""
+  },
+  "vite.config.ts": {
+    "mtime": 1782263976.2738225,
+    "ast_hash": "f99a179afa8b0c013f4b573393b161c3",
+    "semantic_hash": ""
+  },
+  "vitest.config.ts": {
+    "mtime": 1782263976.2738225,
+    "ast_hash": "b4913061f384e21b94474de62cb7d911",
+    "semantic_hash": ""
+  },
+  "AGENTS.md": {
+    "mtime": 1782290456.8780673,
+    "ast_hash": "c6b4b975eae99a39ddd67f6d4cbab0c3",
+    "semantic_hash": ""
+  },
+  "DDD.md": {
+    "mtime": 1782290456.8710673,
+    "ast_hash": "4167e677732fe0439fd45f7c182b1476",
+    "semantic_hash": ""
+  },
+  "PATTERN.md": {
+    "mtime": 1782289072.3529744,
+    "ast_hash": "23567f454d2dee925ce2d59cb0a6440c",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1782290456.8750677,
+    "ast_hash": "7183e02fc1b68fab24f523f46c5f540b",
+    "semantic_hash": ""
+  },
+  "TDD.md": {
+    "mtime": 1782290456.8730671,
+    "ast_hash": "385ffe6c8a0eb467a3073d4e1a7447c9",
+    "semantic_hash": ""
+  },
+  "TODO.md": {
+    "mtime": 1782281886.727732,
+    "ast_hash": "20e0e8928cd303b503fae8e904288e21",
+    "semantic_hash": ""
+  },
+  "documentation/vertical-slices/automation-builder/README.md": {
+    "mtime": 1782263976.2558167,
+    "ast_hash": "ccdeaba762181f0402c89ddd9c625065",
+    "semantic_hash": ""
+  },
+  "documentation/vertical-slices/automation-builder/prompt-to-draft-automation.md": {
+    "mtime": 1782263976.2558167,
+    "ast_hash": "737826a2360151cb87334183dd7ef9eb",
+    "semantic_hash": ""
+  },
+  "documentation/vertical-slices/automation-builder/save-draft-automation.md": {
+    "mtime": 1782288893.6882856,
+    "ast_hash": "d762d00595a181fddee04c523c82e298",
+    "semantic_hash": ""
+  },
+  "documentation/vertical-slices/automation-runner/README.md": {
+    "mtime": 1782288955.2905176,
+    "ast_hash": "238800dd5e8b48c5f1ffdc10761f6e77",
+    "semantic_hash": ""
+  },
+  "documentation/vertical-slices/automation-runner/approval-gated-run-actions.md": {
+    "mtime": 1782288921.4190135,
+    "ast_hash": "4794072d19fb62c25f2d9bb295ff53b1",
+    "semantic_hash": ""
+  },
+  "documentation/vertical-slices/automation-runner/run-nondeterministic-desktop-task.md": {
+    "mtime": 1782281891.1928275,
+    "ast_hash": "b0438d469da79e0ab8234b2733e4ee98",
+    "semantic_hash": ""
+  },
+  "documentation/vertical-slices/automation-runner/run-saved-automation.md": {
+    "mtime": 1782288909.3485074,
+    "ast_hash": "e427125a9fe02a8727525af4c59076ca",
+    "semantic_hash": ""
+  },
+  "index.html": {
+    "mtime": 1782263976.2588165,
+    "ast_hash": "21c32d019b9c5294bbd71b61b0073860",
+    "semantic_hash": ""
+  }
+}
