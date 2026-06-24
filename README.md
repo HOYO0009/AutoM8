@@ -9,7 +9,7 @@ User goal:
 Let users create, inspect, edit, run, and monitor desktop-wide automations without manually scripting every step.
 
 Current status:
-Prototype phase. Initial target platform is Windows. The web prototype creates a draft automation from a natural-language prompt through a local OpenRouter-backed API, lets the user save the generated draft as an in-memory automation candidate, and runs that candidate through a safe in-memory MVP runner that records step results without controlling the desktop.
+Prototype phase. Initial target platform is Windows. The web prototype creates a draft automation from a natural-language prompt through a local OpenRouter-backed API, lets the user save the generated draft as an in-memory automation candidate, and starts a real hybrid runner for saved candidates. The runner executes validated deterministic actions through a local Windows desktop driver, uses bounded LLM-assisted desktop tasks for ambiguous steps, records live step evidence, and pauses for approval before external side effects.
 
 ## Quick Start
 
@@ -39,6 +39,6 @@ Test: `npm run test`
 | `PRINCIPLE.md` | Coding/design principles with `Used` or concrete `Planned` status. |
 | `documentation/vertical-slices/automation-builder/` | Automation Builder module behavior and slice notes. |
 | `documentation/vertical-slices/automation-runner/` | Automation Runner slice notes. |
-| `server/` | Local API, OpenRouter draft generation, in-memory saved automation storage, and safe in-memory automation runs. |
+| `server/` | Local API, OpenRouter draft generation, in-memory saved automation storage, planning, Windows desktop driver actions, and hybrid automation runs. |
 | `shared/` | Types shared by the frontend and backend. |
 | `src/` | React web prototype. |

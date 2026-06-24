@@ -3,7 +3,6 @@
 ## Next Vertical Slices
 
 - [ ] Automation Builder: record desktop actions to create an automation.
-- [ ] Hybrid Runtime: combine deterministic actions with bounded LLM-assisted perception, repair, and reasoning.
 - [ ] Node Graph Viewer: inspect automation steps, node types, inputs, outputs, fallbacks, and verification logic.
 - [ ] Editing: modify automations through prompting, manual graph edits, or re-recording specific nodes.
 - [ ] Run History: view previous runs, failures, screenshots, logs, token usage, and repair attempts.
@@ -23,4 +22,4 @@
 - [x] Documentation foundation.
 - [x] Automation Builder / Prompt-to-draft automation: create a draft automation from a natural-language prompt.
 - [x] Automation Builder / Save draft automation: save a generated draft as an in-memory automation candidate.
-- [x] Automation Runner / Run saved automation: run a saved automation through a safe in-memory runner and show step-by-step results.
+- [x] Automation Runner / Run saved automation: run a saved automation through a Windows-first hybrid runner with deterministic actions, bounded LLM-assisted actions, live step status, and approval gates.

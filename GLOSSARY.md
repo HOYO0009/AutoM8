@@ -20,7 +20,8 @@
 | Term | Meaning | Owner/Context |
 |---|---|---|
 | Automation run | A recorded attempt to run a saved automation, including timestamps, overall status, and per-step results. | Runner |
-| Safe MVP runner | The first runner implementation, which records saved automation steps as completed without controlling the Windows desktop. | Runner |
+| Hybrid runner | The Windows-first runner that executes deterministic actions directly, uses bounded LLM-assisted desktop control for ambiguous work, and records step evidence. | Runner |
+| Approval gate | A run pause that requires the user to approve a side-effect action before AutoM8 continues. | Runner, safety |
 
 ## Runtime
 
@@ -32,6 +33,7 @@
 | Control node | A node that manages flow through branching, looping, retries, timeouts, pauses, approval requests, fallbacks, or stopping execution. | Runtime |
 | Verification node | A node that checks whether an action succeeded or confirms expected state, output files, or before/after values. | Runtime |
 | Human approval gate | A pause in an automation that asks the user to approve an important action before continuing. | Runtime, safety |
+| Executable action | A validated runner command such as launching an app, focusing a window, opening a URL, typing text, pressing a hotkey, clicking, waiting, verifying text, requesting approval, or entering a bounded LLM desktop task. | Runtime |
 
 ## Monitoring and Insights
 

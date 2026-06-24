@@ -440,7 +440,7 @@ h3 {
   display: grid;
   grid-template-columns: 18px 1fr;
   gap: 8px;
-  color: #2f6d3a;
+  color: #285f66;
 }
 
 .run-step-title {
@@ -467,6 +467,59 @@ h3 {
   color: #52606d;
   font-size: 0.9rem;
   line-height: 1.4;
+}
+
+.run-log-list {
+  display: grid;
+  gap: 3px;
+  margin: 6px 0 0;
+  padding-left: 16px;
+  color: #667380;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.approval-box {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 10px;
+  border: 1px solid #d6caaa;
+  border-radius: 8px;
+  padding: 12px;
+  color: #67572b;
+  background: #faf6e9;
+}
+
+.approval-box strong {
+  color: #101820;
+}
+
+.approval-box p {
+  margin-top: 3px;
+  color: #67572b;
+  line-height: 1.4;
+}
+
+.approval-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.approval-actions button {
+  min-height: 32px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 12px;
+  color: #ffffff;
+  background: #285f66;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.approval-actions button.secondary {
+  color: #285f66;
+  background: #dcece8;
 }
 
 .spin {
@@ -516,6 +569,7 @@ h3 {
 
   .draft-title-row,
   .form-footer,
+  .approval-actions,
   .saved-actions,
   .saved-item-header,
   .step-title-row {
@@ -524,6 +578,7 @@ h3 {
   }
 
   .form-footer button,
+  .approval-actions button,
   .saved-actions button,
   .save-draft-button {
     width: 100%;

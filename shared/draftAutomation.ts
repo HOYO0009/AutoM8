@@ -25,14 +25,102 @@ export interface SavedAutomation extends DraftAutomation {
   createdAt: string;
 }
 
-export type AutomationRunStatus = "completed" | "failed";
-export type AutomationStepRunStatus = "completed" | "failed";
+export type ExecutableAction =
+  | {
+      type: "launch_app";
+      app: string;
+    }
+  | {
+      type: "focus_window";
+      title?: string;
+      app?: string;
+    }
+  | {
+      type: "open_url";
+      url: string;
+    }
+  | {
+      type: "hotkey";
+      keys: string;
+    }
+  | {
+      type: "type_text";
+      text: string;
+    }
+  | {
+      type: "click";
+      x: number;
+      y: number;
+    }
+  | {
+      type: "wait";
+      ms: number;
+    }
+  | {
+      type: "verify_text";
+      text: string;
+    }
+  | {
+      type: "llm_desktop_task";
+      goal: string;
+      maxIterations: number;
+      timeoutMs: number;
+    }
+  | {
+      type: "approval_gate";
+      action: string;
+      destination?: string;
+      dataSummary?: string;
+    };
+
+export interface ExecutableAutomationStep extends DraftAutomationStep {
+  actions: ExecutableAction[];
+}
+
+export interface ExecutableAutomationPlan {
+  automationId: string;
+  steps: ExecutableAutomationStep[];
+}
+
+export type AutomationRunStatus =
+  | "queued"
+  | "running"
+  | "waiting_for_approval"
+  | "completed"
+  | "failed"
+  | "cancelled";
+export type AutomationStepRunStatus =
+  | "pending"
+  | "running"
+  | "waiting_for_approval"
+  | "completed"
+  | "failed"
+  | "skipped";
+export type AutomationApprovalStatus = "pending" | "approved" | "denied";
+
+export interface AutomationRunLog {
+  at: string;
+  message: string;
+}
+
+export interface AutomationApproval {
+  id: string;
+  stepIndex: number;
+  title: string;
+  action: string;
+  destination?: string;
+  dataSummary?: string;
+  status: AutomationApprovalStatus;
+  resolvedAt?: string;
+}
 
 export interface AutomationStepRun {
   title: string;
   nodeType: DraftNodeType;
   status: AutomationStepRunStatus;
   message: string;
+  actionType?: ExecutableAction["type"];
+  logs: AutomationRunLog[];
 }
 
 export interface AutomationRun {
@@ -40,8 +128,10 @@ export interface AutomationRun {
   automationId: string;
   status: AutomationRunStatus;
   startedAt: string;
-  completedAt: string;
+  completedAt?: string;
   steps: AutomationStepRun[];
+  approvals: AutomationApproval[];
+  logs: AutomationRunLog[];
 }
 
 export interface DraftAutomationResponse {
@@ -57,8 +147,16 @@ export interface SaveDraftAutomationResponse extends SavedAutomationsResponse {
 }
 
 export interface RunAutomationResponse {
+  runId: string;
   run: AutomationRun;
+}
+
+export interface AutomationRunsResponse {
   runs: AutomationRun[];
+}
+
+export interface AutomationRunResponse {
+  run: AutomationRun;
 }
 
 export interface ApiErrorResponse {

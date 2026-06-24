@@ -1,9 +1,10 @@
-import { AlertCircle, CheckCircle2, LoaderCircle, Play, Save, Sparkles } from "lucide-react";
+import { AlertCircle, CheckCircle2, LoaderCircle, Play, Save, ShieldCheck, Sparkles, XCircle } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import {
   ApiErrorResponse,
   AutomationRun,
+  AutomationRunResponse,
   DraftAutomation,
   DraftAutomationResponse,
   RunAutomationResponse,
@@ -27,6 +28,9 @@ export function App() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [runningAutomationId, setRunningAutomationId] = useState<string | null>(null);
+  const hasActiveRun = automationRuns.some((run) =>
+    ["queued", "running", "waiting_for_approval"].includes(run.status)
+  );
 
   const trimmedPrompt = prompt.trim();
   const canGenerate = trimmedPrompt.length > 0 && !isGenerating;
@@ -62,11 +66,39 @@ export function App() {
     }
 
     void loadSavedAutomations();
+    void loadAutomationRuns();
 
     return () => {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!hasActiveRun) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      void loadAutomationRuns();
+    }, 1000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [hasActiveRun]);
+
+  async function loadAutomationRuns() {
+    try {
+      const response = await fetch("/api/automation-runs");
+      const payload = (await response.json()) as { runs: AutomationRun[] } | ApiErrorResponse;
+
+      if (response.ok && !("error" in payload)) {
+        setAutomationRuns(payload.runs);
+      }
+    } catch {
+      // The next run action will refresh run state.
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -165,7 +197,7 @@ export function App() {
         return;
       }
 
-      setAutomationRuns(payload.runs);
+      setAutomationRuns((currentRuns) => upsertRun(currentRuns, payload.run));
     } catch {
       setRunErrors((currentErrors) => ({
         ...currentErrors,
@@ -173,6 +205,21 @@ export function App() {
       }));
     } finally {
       setRunningAutomationId(null);
+    }
+  }
+
+  async function handleApproval(runId: string, approvalId: string, decision: "approve" | "deny") {
+    try {
+      const response = await fetch(`/api/automation-runs/${runId}/approvals/${approvalId}/${decision}`, {
+        method: "POST"
+      });
+      const payload = (await response.json()) as AutomationRunResponse | ApiErrorResponse;
+
+      if (response.ok && !("error" in payload)) {
+        setAutomationRuns((currentRuns) => upsertRun(currentRuns, payload.run));
+      }
+    } catch {
+      // Polling or a later user action can recover the latest run state.
     }
   }
 
@@ -234,6 +281,7 @@ export function App() {
             savedAutomations={savedAutomations}
             latestRunByAutomationId={latestRunByAutomationId}
             onRun={handleRunAutomation}
+            onApproval={handleApproval}
             runErrors={runErrors}
             runningAutomationId={runningAutomationId}
           />
@@ -310,12 +358,14 @@ function SavedAutomationList({
   savedAutomations,
   latestRunByAutomationId,
   onRun,
+  onApproval,
   runErrors,
   runningAutomationId
 }: {
   savedAutomations: SavedAutomation[];
   latestRunByAutomationId: Record<string, AutomationRun>;
   onRun: (automationId: string) => void;
+  onApproval: (runId: string, approvalId: string, decision: "approve" | "deny") => void;
   runErrors: Record<string, string>;
   runningAutomationId: string | null;
 }) {
@@ -333,7 +383,8 @@ function SavedAutomationList({
         {savedAutomations.map((automation) => {
           const latestRun = latestRunByAutomationId[automation.id];
           const runError = runErrors[automation.id];
-          const isRunning = runningAutomationId === automation.id;
+          const isActive = latestRun ? ["queued", "running", "waiting_for_approval"].includes(latestRun.status) : false;
+          const isRunning = runningAutomationId === automation.id || isActive;
 
           return (
             <li key={automation.id} className="saved-item">
@@ -362,7 +413,7 @@ function SavedAutomationList({
                   <span>{runError}</span>
                 </div>
               ) : null}
-              {latestRun ? <AutomationRunResult run={latestRun} /> : null}
+              {latestRun ? <AutomationRunResult run={latestRun} onApproval={onApproval} /> : null}
             </li>
           );
         })}
@@ -371,32 +422,85 @@ function SavedAutomationList({
   );
 }
 
-function AutomationRunResult({ run }: { run: AutomationRun }) {
+function AutomationRunResult({
+  run,
+  onApproval
+}: {
+  run: AutomationRun;
+  onApproval: (runId: string, approvalId: string, decision: "approve" | "deny") => void;
+}) {
+  const pendingApprovals = run.approvals.filter((approval) => approval.status === "pending");
+
   return (
     <div className="run-result">
       <div className="run-result-header">
         <div>
           <p className="eyebrow">Latest run</p>
-          <h3>{run.status === "completed" ? "Completed" : "Failed"}</h3>
+          <h3>{formatStatus(run.status)}</h3>
         </div>
-        <span>{new Date(run.completedAt).toLocaleTimeString()}</span>
+        <span>{new Date(run.completedAt ?? run.startedAt).toLocaleTimeString()}</span>
       </div>
+      {pendingApprovals.map((approval) => (
+        <div key={approval.id} className="approval-box">
+          <ShieldCheck aria-hidden="true" size={18} />
+          <div>
+            <strong>Approve {approval.action}</strong>
+            <p>
+              {approval.destination ? `${approval.destination}: ` : ""}
+              {approval.dataSummary ?? "AutoM8 needs approval before this side-effect action."}
+            </p>
+            <div className="approval-actions">
+              <button type="button" onClick={() => onApproval(run.id, approval.id, "approve")}>
+                Approve
+              </button>
+              <button type="button" className="secondary" onClick={() => onApproval(run.id, approval.id, "deny")}>
+                Deny
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
       <ol className="run-step-list">
         {run.steps.map((step, index) => (
           <li key={`${run.id}-${step.title}-${index}`}>
-            <CheckCircle2 aria-hidden="true" size={16} />
+            {step.status === "failed" ? (
+              <XCircle aria-hidden="true" size={16} />
+            ) : step.status === "running" || step.status === "waiting_for_approval" || step.status === "pending" ? (
+              <LoaderCircle aria-hidden="true" className="spin" size={16} />
+            ) : (
+              <CheckCircle2 aria-hidden="true" size={16} />
+            )}
             <div>
               <div className="run-step-title">
                 <strong>{step.title}</strong>
-                <span>{step.nodeType}</span>
+                <span>{step.actionType ?? step.nodeType}</span>
               </div>
               <p>{step.message}</p>
+              {step.logs.length > 0 ? (
+                <ul className="run-log-list">
+                  {step.logs.slice(-3).map((log) => (
+                    <li key={`${log.at}-${log.message}`}>{log.message}</li>
+                  ))}
+                </ul>
+              ) : null}
             </div>
           </li>
         ))}
       </ol>
     </div>
   );
+}
+
+function upsertRun(currentRuns: AutomationRun[], run: AutomationRun): AutomationRun[] {
+  const withoutRun = currentRuns.filter((currentRun) => currentRun.id !== run.id);
+  return [run, ...withoutRun];
+}
+
+function formatStatus(status: AutomationRun["status"]): string {
+  return status
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 function EmptyPreview({ isGenerating }: { isGenerating: boolean }) {
