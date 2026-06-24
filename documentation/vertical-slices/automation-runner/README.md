@@ -7,3 +7,4 @@ Integrated behavior:
 - And deterministic actions execute through the Windows desktop driver
 - And side-effect actions pause for approval before continuing
 - And non-deterministic desktop tasks use screenshot and accessibility evidence, execute one model-selected action at a time, verify from fresh evidence, and pause for approval when needed
+- And executable action schemas, validation, and bounded non-deterministic action subsets come from the runner action registry

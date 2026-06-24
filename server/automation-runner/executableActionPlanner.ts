@@ -1,82 +1,19 @@
 import {
   DraftAutomation,
-  DraftNodeType,
   ExecutableAction,
   ExecutableActionPlan,
   ExecutableActionPlanStep,
   SavedAutomationCandidate
 } from "../../shared/draftAutomation.js";
+import { isDraftNodeType } from "../../shared/draftValidation.js";
+import {
+  EXECUTABLE_ACTION_PLAN_SCHEMA,
+  ExecutableActionValidationError,
+  validateExecutableAction
+} from "./executableActionRegistry.js";
 import { requestOpenRouterStructuredOutput } from "../llm/openRouterStructuredOutput.js";
 
 const ACTION_PLAN_REQUEST_TIMEOUT_MS = 30_000;
-const EXECUTABLE_ACTION_PLAN_SCHEMA = {
-  name: "ExecutableActionPlan",
-  strict: true,
-  schema: {
-    type: "object",
-    additionalProperties: false,
-    properties: {
-      steps: {
-        type: "array",
-        minItems: 1,
-        items: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            title: { type: "string", minLength: 1 },
-            nodeType: {
-              type: "string",
-              enum: ["deterministic", "perception", "llm", "control", "verification"]
-            },
-            description: { type: "string", minLength: 1 },
-            actions: {
-              type: "array",
-              minItems: 1,
-              items: {
-                type: "object",
-                additionalProperties: false,
-                properties: {
-                  type: {
-                    type: "string",
-                    enum: [
-                      "launch_app",
-                      "focus_window",
-                      "open_url",
-                      "hotkey",
-                      "type_text",
-                      "click",
-                      "wait",
-                      "verify_text",
-                      "llm_desktop_task",
-                      "approval_gate"
-                    ]
-                  },
-                  app: { type: "string" },
-                  title: { type: "string" },
-                  url: { type: "string" },
-                  keys: { type: "string" },
-                  text: { type: "string" },
-                  x: { type: "number" },
-                  y: { type: "number" },
-                  ms: { type: "number" },
-                  goal: { type: "string" },
-                  maxIterations: { type: "number" },
-                  timeoutMs: { type: "number" },
-                  action: { type: "string" },
-                  destination: { type: "string" },
-                  dataSummary: { type: "string" }
-                },
-                required: ["type"]
-              }
-            }
-          },
-          required: ["title", "nodeType", "description", "actions"]
-        }
-      }
-    },
-    required: ["steps"]
-  }
-} as const;
 
 export interface ExecutableActionPlannerConfig {
   apiKey?: string;
@@ -286,7 +223,7 @@ function validateExecutableActionPlanStep(
   if (typeof title !== "string" || !title.trim()) {
     throw invalidActionPlanError(model, "step-title", providerStatus);
   }
-  if (!isNodeType(nodeType)) {
+  if (!isDraftNodeType(nodeType)) {
     throw invalidActionPlanError(model, "step-node-type", providerStatus);
   }
   if (typeof description !== "string" || !description.trim()) {
@@ -309,59 +246,14 @@ export function validateAction(
   model = "local",
   providerStatus = 200
 ): ExecutableAction {
-  if (!isRecord(value) || typeof value.type !== "string") {
-    throw invalidActionPlanError(model, "action-shape", providerStatus);
-  }
-
-  switch (value.type) {
-    case "launch_app":
-      return { type: "launch_app", app: requireString(value.app, "action-app", model, providerStatus) };
-    case "focus_window": {
-      const title = optionalString(value.title);
-      const app = optionalString(value.app);
-      if (!title && !app) {
-        throw invalidActionPlanError(model, "action-focus-target", providerStatus);
-      }
-      return { type: "focus_window", title, app };
+  try {
+    return validateExecutableAction(value);
+  } catch (error) {
+    if (error instanceof ExecutableActionValidationError) {
+      throw invalidActionPlanError(model, error.stage, providerStatus);
     }
-    case "open_url":
-      return { type: "open_url", url: requireString(value.url, "action-url", model, providerStatus) };
-    case "hotkey":
-      return { type: "hotkey", keys: requireString(value.keys, "action-keys", model, providerStatus) };
-    case "type_text":
-      return { type: "type_text", text: requireString(value.text, "action-text", model, providerStatus) };
-    case "click":
-      return {
-        type: "click",
-        x: requireNumber(value.x, "action-x", model, providerStatus),
-        y: requireNumber(value.y, "action-y", model, providerStatus)
-      };
-    case "wait":
-      return { type: "wait", ms: Math.max(0, Math.min(requireNumber(value.ms, "action-ms", model, providerStatus), 30_000)) };
-    case "verify_text":
-      return { type: "verify_text", text: requireString(value.text, "action-verify-text", model, providerStatus) };
-    case "llm_desktop_task":
-      return {
-        type: "llm_desktop_task",
-        goal: requireString(value.goal, "action-goal", model, providerStatus),
-        maxIterations: Math.max(
-          1,
-          Math.min(requireNumber(value.maxIterations, "action-max-iterations", model, providerStatus), 10)
-        ),
-        timeoutMs: Math.max(
-          1000,
-          Math.min(requireNumber(value.timeoutMs, "action-timeout", model, providerStatus), 300_000)
-        )
-      };
-    case "approval_gate":
-      return {
-        type: "approval_gate",
-        action: requireString(value.action, "action-approval-action", model, providerStatus),
-        destination: optionalString(value.destination),
-        dataSummary: optionalString(value.dataSummary)
-      };
-    default:
-      throw invalidActionPlanError(model, "action-type", providerStatus);
+
+    throw error;
   }
 }
 
@@ -413,46 +305,6 @@ function invalidActionPlanError(
     "INVALID_EXECUTABLE_ACTION_PLAN",
     "The configured executable action planner did not return a runnable AutoM8 action plan.",
     502
-  );
-}
-
-function requireString(
-  value: unknown,
-  stage: string,
-  model: string,
-  providerStatus: number
-): string {
-  if (typeof value !== "string" || !value.trim()) {
-    throw invalidActionPlanError(model, stage, providerStatus);
-  }
-
-  return value.trim();
-}
-
-function optionalString(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
-
-function requireNumber(
-  value: unknown,
-  stage: string,
-  model: string,
-  providerStatus: number
-): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw invalidActionPlanError(model, stage, providerStatus);
-  }
-
-  return value;
-}
-
-function isNodeType(value: unknown): value is DraftNodeType {
-  return (
-    value === "deterministic" ||
-    value === "perception" ||
-    value === "llm" ||
-    value === "control" ||
-    value === "verification"
   );
 }
 

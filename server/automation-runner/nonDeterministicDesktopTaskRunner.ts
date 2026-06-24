@@ -1,47 +1,13 @@
 import { ExecutableAction } from "../../shared/draftAutomation.js";
 import { DesktopDriver, DesktopObservation } from "../desktop/desktopDriver.js";
-import { validateAction } from "./executableActionPlanner.js";
+import {
+  isNonDeterministicDesktopTaskAction,
+  NON_DETERMINISTIC_DESKTOP_TASK_ACTION_SCHEMA,
+  validateExecutableAction
+} from "./executableActionRegistry.js";
 import { requestOpenRouterStructuredOutput } from "../llm/openRouterStructuredOutput.js";
 
 const NON_DETERMINISTIC_TASK_REQUEST_TIMEOUT_MS = 30_000;
-const NON_DETERMINISTIC_DESKTOP_TASK_ACTION_SCHEMA = {
-  name: "NonDeterministicDesktopTaskAction",
-  strict: true,
-  schema: {
-    type: "object",
-    additionalProperties: false,
-    properties: {
-      decision: {
-        type: "string",
-        enum: ["act", "complete", "fail"]
-      },
-      reason: { type: "string" },
-      action: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          type: {
-            type: "string",
-            enum: ["focus_window", "open_url", "hotkey", "type_text", "click", "wait", "verify_text", "approval_gate"]
-          },
-          app: { type: "string" },
-          title: { type: "string" },
-          url: { type: "string" },
-          keys: { type: "string" },
-          text: { type: "string" },
-          x: { type: "number" },
-          y: { type: "number" },
-          ms: { type: "number" },
-          action: { type: "string" },
-          destination: { type: "string" },
-          dataSummary: { type: "string" }
-        },
-        required: ["type"]
-      }
-    },
-    required: ["decision", "reason"]
-  }
-} as const;
 
 export interface NonDeterministicDesktopTaskRunnerConfig {
   apiKey?: string;
@@ -122,8 +88,8 @@ export function createNonDeterministicDesktopTaskRunner(
             };
           }
 
-          const action = validateAction(decision.action);
-          if (action.type === "launch_app" || action.type === "llm_desktop_task") {
+          const action = validateExecutableAction(decision.action);
+          if (!isNonDeterministicDesktopTaskAction(action)) {
             return {
               status: "failed",
               message: "The non-deterministic desktop task can only use bounded desktop actions after planning.",

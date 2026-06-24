@@ -93,7 +93,7 @@ $windows | ConvertTo-Json -Compress
 
     async launchApp(app) {
       assertSafeAppIdentifier(app);
-      await runPowerShellWithJson(
+      await runPowerShell(
         `
 $payload = [Console]::In.ReadToEnd() | ConvertFrom-Json
 Start-Process -FilePath $payload.app
@@ -110,7 +110,7 @@ Start-Process -FilePath $payload.app
         throw new DesktopDriverError("A window title or app name is required before focusing a window.");
       }
 
-      await runPowerShellWithJson(
+      await runPowerShell(
         `
 $signature = @"
 using System;
@@ -138,7 +138,7 @@ if (-not $process) { throw "No matching window was found." }
 
     async openUrl(url) {
       assertSafeUrl(url);
-      await runPowerShellWithJson(
+      await runPowerShell(
         `
 $payload = [Console]::In.ReadToEnd() | ConvertFrom-Json
 Start-Process $payload.url
@@ -151,7 +151,7 @@ Start-Process $payload.url
     async click(x, y) {
       assertFiniteCoordinate(x, "x");
       assertFiniteCoordinate(y, "y");
-      await runPowerShellWithJson(
+      await runPowerShell(
         `
 $signature = @"
 using System;
@@ -207,7 +207,7 @@ async function sendKeys(keys: string): Promise<void> {
 }
 
 async function sendKeysInput(keys: string): Promise<void> {
-  await runPowerShellWithJson(
+  await runPowerShell(
     `
 Add-Type -AssemblyName System.Windows.Forms
 $payload = [Console]::In.ReadToEnd() | ConvertFrom-Json
@@ -217,22 +217,31 @@ $payload = [Console]::In.ReadToEnd() | ConvertFrom-Json
   );
 }
 
-function runPowerShell(script: string): Promise<string> {
+function runPowerShell(script: string, payload?: unknown): Promise<string> {
   return new Promise((resolve, reject) => {
+    const hasPayload = arguments.length > 1;
     const child = spawn(
       "powershell.exe",
       ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script],
-      { stdio: ["ignore", "pipe", "pipe"] }
+      { stdio: [hasPayload ? "pipe" : "ignore", "pipe", "pipe"] }
     );
+    const stdoutStream = child.stdout;
+    const stderrStream = child.stderr;
+    const stdinStream = child.stdin;
     let stdout = "";
     let stderr = "";
 
-    child.stdout.setEncoding("utf8");
-    child.stderr.setEncoding("utf8");
-    child.stdout.on("data", (chunk) => {
+    if (!stdoutStream || !stderrStream || (hasPayload && !stdinStream)) {
+      reject(new DesktopDriverError("Could not open Windows desktop action process streams."));
+      return;
+    }
+
+    stdoutStream.setEncoding("utf8");
+    stderrStream.setEncoding("utf8");
+    stdoutStream.on("data", (chunk) => {
       stdout += chunk;
     });
-    child.stderr.on("data", (chunk) => {
+    stderrStream.on("data", (chunk) => {
       stderr += chunk;
     });
     child.on("error", (error) => reject(new DesktopDriverError(error.message)));
@@ -244,37 +253,9 @@ function runPowerShell(script: string): Promise<string> {
 
       reject(new DesktopDriverError(stderr.trim() || `Windows desktop action failed with exit code ${code}.`));
     });
-  });
-}
-
-function runPowerShellWithJson(script: string, payload: unknown): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(
-      "powershell.exe",
-      ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script],
-      { stdio: ["pipe", "pipe", "pipe"] }
-    );
-    let stdout = "";
-    let stderr = "";
-
-    child.stdout.setEncoding("utf8");
-    child.stderr.setEncoding("utf8");
-    child.stdout.on("data", (chunk) => {
-      stdout += chunk;
-    });
-    child.stderr.on("data", (chunk) => {
-      stderr += chunk;
-    });
-    child.on("error", (error) => reject(new DesktopDriverError(error.message)));
-    child.on("close", (code) => {
-      if (code === 0) {
-        resolve(stdout.trim());
-        return;
-      }
-
-      reject(new DesktopDriverError(stderr.trim() || `Windows desktop action failed with exit code ${code}.`));
-    });
-    child.stdin.end(JSON.stringify(payload));
+    if (hasPayload && stdinStream) {
+      stdinStream.end(JSON.stringify(payload));
+    }
   });
 }
 

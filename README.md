@@ -40,10 +40,10 @@ Test: `npm run test`
 | `documentation/vertical-slices/automation-builder/` | Automation Builder module behavior and slice notes. |
 | `documentation/vertical-slices/automation-runner/` | Automation Runner module behavior and slice notes. |
 | `graphify-out/` | Generated Graphify code graph report, interactive graph, and raw graph data. |
-| `server/` | Local API composition entrypoint and backend modules. |
+| `server/` | Local API app factory, composition entrypoint, and backend modules. |
 | `server/automation-builder/` | OpenRouter draft generation and in-memory saved automation candidate storage. |
-| `server/automation-runner/` | Executable action planning, run state, approval gates, and non-deterministic desktop tasks with screenshot/accessibility perception. |
+| `server/automation-runner/` | Executable action registry/planning, run state, approval gates, and non-deterministic desktop tasks with screenshot/accessibility perception. |
 | `server/desktop/` | Windows desktop driver actions. |
 | `server/llm/` | Shared OpenRouter structured-output request plumbing. |
-| `shared/` | Types shared by the frontend and backend. |
-| `src/` | React web prototype. |
+| `shared/` | Types, API response shapes, and draft validation shared by the frontend and backend. |
+| `src/` | React web prototype, frontend API client, workspace state hook, and focused view components. |

@@ -1,17 +1,17 @@
 import { randomUUID } from "node:crypto";
 
 import {
-  AutomationApproval,
   AutomationRun,
   AutomationRunLog,
   AutomationStepRun,
-  ExecutableAction,
   ExecutableActionPlan,
   SavedAutomationCandidate
 } from "../../shared/draftAutomation.js";
 import { NonDeterministicDesktopTaskRunner } from "./nonDeterministicDesktopTaskRunner.js";
 import { DesktopDriver } from "../desktop/desktopDriver.js";
 import { actionRequiresApproval, ExecutableActionPlanner } from "./executableActionPlanner.js";
+import { createAutomationApproval } from "./automationApproval.js";
+import { executeDesktopAction } from "./desktopActionExecutor.js";
 
 export class RunAutomationError extends Error {
   constructor(
@@ -107,7 +107,7 @@ export function createAutomationRunManager(config: AutomationRunManagerConfig) {
               return;
             }
 
-            const approval = createApproval(run, stepIndex, step.title, action);
+            const approval = recordApproval(run, stepIndex, step.title, action);
             run.status = "waiting_for_approval";
             step.status = "waiting_for_approval";
             step.message = "Waiting for approval before a side-effect action.";
@@ -134,7 +134,7 @@ export function createAutomationRunManager(config: AutomationRunManagerConfig) {
                 );
               }
 
-              const approval = createApproval(run, stepIndex, step.title, result.approval);
+              const approval = recordApproval(run, stepIndex, step.title, result.approval);
               run.status = "waiting_for_approval";
               step.status = "waiting_for_approval";
               step.message = "Waiting for approval before a side-effect action.";
@@ -147,7 +147,7 @@ export function createAutomationRunManager(config: AutomationRunManagerConfig) {
             continue;
           }
 
-          const message = await executeAction(action);
+          const message = await executeDesktopAction(config.driver, action);
           addStepLog(step, message);
         }
 
@@ -174,47 +174,18 @@ export function createAutomationRunManager(config: AutomationRunManagerConfig) {
     }
   }
 
-  async function executeAction(action: ExecutableAction): Promise<string> {
-    switch (action.type) {
-      case "launch_app":
-        return config.driver.launchApp(action.app);
-      case "focus_window":
-        return config.driver.focusWindow({ app: action.app, title: action.title });
-      case "open_url":
-        return config.driver.openUrl(action.url);
-      case "hotkey":
-        return config.driver.pressKey(action.keys);
-      case "type_text":
-        return config.driver.typeText(action.text);
-      case "click":
-        return config.driver.click(action.x, action.y);
-      case "wait":
-        return config.driver.wait(action.ms);
-      case "verify_text":
-        return config.driver.verifyText(action.text);
-      case "llm_desktop_task":
-        throw new RunAutomationError("NON_DETERMINISTIC_STEP_UNHANDLED", "The non-deterministic desktop task was not handled.", 500);
-      case "approval_gate":
-        return `Approval gate passed for ${action.action}.`;
-    }
-  }
-
-  function createApproval(
+  function recordApproval(
     run: AutomationRun,
     stepIndex: number,
     title: string,
-    action: ExecutableAction
-  ): AutomationApproval {
-    const approval: AutomationApproval = {
+    action: Parameters<typeof createAutomationApproval>[0]["action"]
+  ) {
+    const approval = createAutomationApproval({
       id: idFactory(),
       stepIndex,
       title,
-      action: action.type === "approval_gate" ? action.action : action.type,
-      destination: action.type === "approval_gate" ? action.destination : undefined,
-      dataSummary: action.type === "approval_gate" ? action.dataSummary : undefined,
-      status: "pending"
-    };
-
+      action
+    });
     run.approvals.push(approval);
     addRunLog(run, `Waiting for approval before ${approval.action}.`);
     return approval;

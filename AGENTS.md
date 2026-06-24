@@ -22,7 +22,7 @@
 
 - Keep provider credentials server-side. Browser code must not receive `OPENROUTER_API_KEY` or other provider secrets.
 - Constrain LLM output at the provider boundary and validate provider responses before turning them into UI-visible data or executable automation actions.
-- Centralize shared provider-boundary mechanics while keeping domain validation in the owning module.
+- Centralize shared provider-boundary mechanics and cross-module DTO validation while keeping owner-specific error policy in the owning module.
 
 ## Safety
 

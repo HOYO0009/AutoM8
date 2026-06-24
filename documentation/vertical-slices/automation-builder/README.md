@@ -7,3 +7,4 @@ Integrated behavior:
 - When AutoM8 generates a draft and the user saves it
 - Then the builder shows the draft steps and keeps the saved automation candidate in memory
 - And the saved candidate is not executed or persisted across server restart
+- And generated and saved drafts pass through the shared draft validation boundary before becoming UI-visible or saved candidate data

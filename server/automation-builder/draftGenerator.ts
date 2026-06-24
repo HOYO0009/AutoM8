@@ -1,4 +1,5 @@
 import { DraftAutomation, nodeTypes } from "../../shared/draftAutomation.js";
+import { DraftValidationError, validateDraftAutomationShape } from "../../shared/draftValidation.js";
 import { requestOpenRouterStructuredOutput } from "../llm/openRouterStructuredOutput.js";
 
 const LLM_REQUEST_TIMEOUT_MS = 30_000;
@@ -145,57 +146,15 @@ export async function createDraftAutomation(
 }
 
 function validateDraftAutomation(value: unknown, model: string, providerStatus: number): DraftAutomation {
-  if (!isRecord(value)) {
-    throw invalidResponseError(model, "draft-shape", providerStatus);
+  try {
+    return validateDraftAutomationShape(value);
+  } catch (error) {
+    if (error instanceof DraftValidationError) {
+      throw invalidResponseError(model, error.stage, providerStatus);
+    }
+
+    throw error;
   }
-
-  const { name, summary, steps } = value;
-  if (typeof name !== "string" || !name.trim()) {
-    throw invalidResponseError(model, "draft-name", providerStatus);
-  }
-
-  if (typeof summary !== "string" || !summary.trim()) {
-    throw invalidResponseError(model, "draft-summary", providerStatus);
-  }
-
-  if (!Array.isArray(steps) || steps.length === 0) {
-    throw invalidResponseError(model, "draft-steps", providerStatus);
-  }
-
-  return {
-    name: name.trim(),
-    summary: summary.trim(),
-    steps: steps.map((step) => validateStep(step, model, providerStatus))
-  };
-}
-
-function validateStep(
-  value: unknown,
-  model: string,
-  providerStatus: number
-): DraftAutomation["steps"][number] {
-  if (!isRecord(value)) {
-    throw invalidResponseError(model, "step-shape", providerStatus);
-  }
-
-  const { title, nodeType, description } = value;
-  if (typeof title !== "string" || !title.trim()) {
-    throw invalidResponseError(model, "step-title", providerStatus);
-  }
-
-  if (!nodeTypes.includes(nodeType as DraftAutomation["steps"][number]["nodeType"])) {
-    throw invalidResponseError(model, "step-node-type", providerStatus);
-  }
-
-  if (typeof description !== "string" || !description.trim()) {
-    throw invalidResponseError(model, "step-description", providerStatus);
-  }
-
-  return {
-    title: title.trim(),
-    nodeType: nodeType as DraftAutomation["steps"][number]["nodeType"],
-    description: description.trim()
-  };
 }
 
 function invalidResponseError(
@@ -214,8 +173,4 @@ function invalidResponseError(
     INVALID_LLM_RESPONSE_MESSAGE,
     502
   );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }
