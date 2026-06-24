@@ -117,7 +117,7 @@ export function useAutomationWorkspace() {
 
   async function saveDraft() {
     if (!draft || isSaving) {
-      return;
+      return null;
     }
 
     setIsSaving(true);
@@ -128,12 +128,14 @@ export function useAutomationWorkspace() {
       const payload = await saveDraftAutomation(draft);
       setSavedAutomationCandidates(payload.savedAutomationCandidates);
       setSavedNotice(`Saved "${payload.savedAutomationCandidate.name}".`);
+      return payload.savedAutomationCandidate;
     } catch (saveDraftError) {
       setSaveError(
         saveDraftError instanceof ApiClientError
           ? saveDraftError.message
           : "AutoM8 could not reach the local saved automation API."
       );
+      return null;
     } finally {
       setIsSaving(false);
     }
