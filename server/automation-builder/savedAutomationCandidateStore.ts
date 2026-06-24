@@ -1,48 +1,48 @@
 import { randomUUID } from "node:crypto";
 
-import { DraftAutomation, nodeTypes, SavedAutomation } from "../../shared/draftAutomation.js";
+import { DraftAutomation, nodeTypes, SavedAutomationCandidate } from "../../shared/draftAutomation.js";
 
-export class SaveAutomationError extends Error {
+export class SaveAutomationCandidateError extends Error {
   constructor(
     public readonly code: string,
     message: string,
     public readonly status = 400
   ) {
     super(message);
-    this.name = "SaveAutomationError";
+    this.name = "SaveAutomationCandidateError";
   }
 }
 
-export interface SavedAutomationStoreConfig {
+export interface SavedAutomationCandidateStoreConfig {
   idFactory?: () => string;
   now?: () => Date;
 }
 
-export function createSavedAutomationStore(config: SavedAutomationStoreConfig = {}) {
-  const savedAutomations: SavedAutomation[] = [];
+export function createSavedAutomationCandidateStore(config: SavedAutomationCandidateStoreConfig = {}) {
+  const savedAutomationCandidates: SavedAutomationCandidate[] = [];
   const idFactory = config.idFactory ?? randomUUID;
   const now = config.now ?? (() => new Date());
 
   return {
-    list(): SavedAutomation[] {
-      return savedAutomations.map(cloneSavedAutomation);
+    list(): SavedAutomationCandidate[] {
+      return savedAutomationCandidates.map(cloneSavedAutomationCandidate);
     },
 
-    get(id: string): SavedAutomation | undefined {
-      const savedAutomation = savedAutomations.find((automation) => automation.id === id);
-      return savedAutomation ? cloneSavedAutomation(savedAutomation) : undefined;
+    get(id: string): SavedAutomationCandidate | undefined {
+      const savedAutomationCandidate = savedAutomationCandidates.find((automation) => automation.id === id);
+      return savedAutomationCandidate ? cloneSavedAutomationCandidate(savedAutomationCandidate) : undefined;
     },
 
-    save(draft: unknown): SavedAutomation {
+    save(draft: unknown): SavedAutomationCandidate {
       const validDraft = validateDraft(draft);
-      const savedAutomation: SavedAutomation = {
+      const savedAutomationCandidate: SavedAutomationCandidate = {
         ...validDraft,
         id: idFactory(),
         createdAt: now().toISOString()
       };
 
-      savedAutomations.unshift(savedAutomation);
-      return cloneSavedAutomation(savedAutomation);
+      savedAutomationCandidates.unshift(savedAutomationCandidate);
+      return cloneSavedAutomationCandidate(savedAutomationCandidate);
     }
   };
 }
@@ -97,17 +97,17 @@ function validateStep(value: unknown): DraftAutomation["steps"][number] {
   };
 }
 
-function invalidDraftError(): SaveAutomationError {
-  return new SaveAutomationError(
+function invalidDraftError(): SaveAutomationCandidateError {
+  return new SaveAutomationCandidateError(
     "INVALID_DRAFT_AUTOMATION",
     "Generate a draft automation before saving."
   );
 }
 
-function cloneSavedAutomation(savedAutomation: SavedAutomation): SavedAutomation {
+function cloneSavedAutomationCandidate(savedAutomationCandidate: SavedAutomationCandidate): SavedAutomationCandidate {
   return {
-    ...savedAutomation,
-    steps: savedAutomation.steps.map((step) => ({ ...step }))
+    ...savedAutomationCandidate,
+    steps: savedAutomationCandidate.steps.map((step) => ({ ...step }))
   };
 }
 

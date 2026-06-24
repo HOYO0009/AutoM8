@@ -5,30 +5,30 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { createDraftAutomation, DraftGenerationError } from "./automation-builder/draftGenerator.js";
-import { createSavedAutomationStore, SaveAutomationError } from "./automation-builder/savedAutomationStore.js";
-import { createAdaptiveDesktopExecutor } from "./automation-runner/adaptiveDesktopExecutor.js";
+import { createSavedAutomationCandidateStore, SaveAutomationCandidateError } from "./automation-builder/savedAutomationCandidateStore.js";
+import { createNonDeterministicDesktopTaskRunner } from "./automation-runner/nonDeterministicDesktopTaskRunner.js";
 import { createAutomationRunManager, RunAutomationError } from "./automation-runner/automationRunStore.js";
-import { createExecutionPlanner, ExecutionPlanningError } from "./automation-runner/executionPlanner.js";
+import { createExecutableActionPlanner, ExecutableActionPlanningError } from "./automation-runner/executableActionPlanner.js";
 import { createWindowsDesktopDriver } from "./desktop/desktopDriver.js";
 
 const app = express();
 const port = Number(process.env.PORT ?? 8787);
-const savedAutomationStore = createSavedAutomationStore();
+const savedAutomationCandidateStore = createSavedAutomationCandidateStore();
 const desktopDriver = createWindowsDesktopDriver();
-const executionPlanner = createExecutionPlanner({
+const executableActionPlanner = createExecutableActionPlanner({
   apiKey: process.env.OPENROUTER_API_KEY,
   model: process.env.OPENROUTER_MODEL,
   baseUrl: process.env.OPENROUTER_BASE_URL
 });
-const adaptiveDesktopExecutor = createAdaptiveDesktopExecutor(desktopDriver, {
+const nonDeterministicDesktopTaskRunner = createNonDeterministicDesktopTaskRunner(desktopDriver, {
   apiKey: process.env.OPENROUTER_API_KEY,
   model: process.env.OPENROUTER_VISION_MODEL ?? process.env.OPENROUTER_MODEL,
   baseUrl: process.env.OPENROUTER_BASE_URL
 });
 const automationRunManager = createAutomationRunManager({
-  planner: executionPlanner,
+  actionPlanner: executableActionPlanner,
   driver: desktopDriver,
-  adaptiveExecutor: adaptiveDesktopExecutor
+  nonDeterministicTaskRunner: nonDeterministicDesktopTaskRunner
 });
 
 app.use(express.json({ limit: "64kb" }));
@@ -56,15 +56,15 @@ app.post("/api/draft-automation", async (request, response) => {
 });
 
 app.get("/api/saved-automations", (_request, response) => {
-  response.json({ savedAutomations: savedAutomationStore.list() });
+  response.json({ savedAutomationCandidates: savedAutomationCandidateStore.list() });
 });
 
 app.post("/api/saved-automations", (request, response) => {
   try {
-    const savedAutomation = savedAutomationStore.save(request.body?.draft);
+    const savedAutomationCandidate = savedAutomationCandidateStore.save(request.body?.draft);
     response.status(201).json({
-      savedAutomation,
-      savedAutomations: savedAutomationStore.list()
+      savedAutomationCandidate,
+      savedAutomationCandidates: savedAutomationCandidateStore.list()
     });
   } catch (error) {
     const apiError = toApiError(error);
@@ -79,8 +79,8 @@ app.post("/api/saved-automations", (request, response) => {
 
 app.post("/api/saved-automations/:id/run", (request, response) => {
   try {
-    const savedAutomation = savedAutomationStore.get(request.params.id);
-    const run = automationRunManager.start(savedAutomation);
+    const savedAutomationCandidate = savedAutomationCandidateStore.get(request.params.id);
+    const run = automationRunManager.start(savedAutomationCandidate);
     response.status(201).json({
       runId: run.id,
       run
@@ -117,9 +117,9 @@ app.get("/api/automation-runs/:id", (request, response) => {
 app.post("/api/automation-runs/:id/approvals/:approvalId/approve", (request, response) => {
   try {
     const run = automationRunManager.get(request.params.id);
-    const savedAutomation = savedAutomationStore.get(run.automationId);
+    const savedAutomationCandidate = savedAutomationCandidateStore.get(run.automationId);
     response.json({
-      run: automationRunManager.approve(request.params.id, request.params.approvalId, savedAutomation)
+      run: automationRunManager.approve(request.params.id, request.params.approvalId, savedAutomationCandidate)
     });
   } catch (error) {
     const apiError = toApiError(error);
@@ -188,7 +188,7 @@ function toApiError(error: unknown): { code: string; message: string; status: nu
     };
   }
 
-  if (error instanceof SaveAutomationError) {
+  if (error instanceof SaveAutomationCandidateError) {
     return {
       code: error.code,
       message: error.message,
@@ -204,7 +204,7 @@ function toApiError(error: unknown): { code: string; message: string; status: nu
     };
   }
 
-  if (error instanceof ExecutionPlanningError) {
+  if (error instanceof ExecutableActionPlanningError) {
     return {
       code: error.code,
       message: error.message,

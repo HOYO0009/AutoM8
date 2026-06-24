@@ -2,15 +2,15 @@ import {
   DraftAutomation,
   DraftNodeType,
   ExecutableAction,
-  ExecutableAutomationPlan,
-  ExecutableAutomationStep,
-  SavedAutomation
+  ExecutableActionPlan,
+  ExecutableActionPlanStep,
+  SavedAutomationCandidate
 } from "../../shared/draftAutomation.js";
 import { requestOpenRouterStructuredOutput } from "../llm/openRouterStructuredOutput.js";
 
-const PLAN_REQUEST_TIMEOUT_MS = 30_000;
-const EXECUTION_PLAN_SCHEMA = {
-  name: "ExecutableAutomationPlan",
+const ACTION_PLAN_REQUEST_TIMEOUT_MS = 30_000;
+const EXECUTABLE_ACTION_PLAN_SCHEMA = {
+  name: "ExecutableActionPlan",
   strict: true,
   schema: {
     type: "object",
@@ -78,32 +78,32 @@ const EXECUTION_PLAN_SCHEMA = {
   }
 } as const;
 
-export interface ExecutionPlannerConfig {
+export interface ExecutableActionPlannerConfig {
   apiKey?: string;
   model?: string;
   baseUrl?: string;
   fetchImpl?: typeof fetch;
 }
 
-export interface ExecutionPlanner {
-  plan(automation: SavedAutomation): Promise<ExecutableAutomationPlan>;
+export interface ExecutableActionPlanner {
+  createPlan(automation: SavedAutomationCandidate): Promise<ExecutableActionPlan>;
 }
 
-export class ExecutionPlanningError extends Error {
+export class ExecutableActionPlanningError extends Error {
   constructor(
     public readonly code: string,
     message: string,
     public readonly status = 400
   ) {
     super(message);
-    this.name = "ExecutionPlanningError";
+    this.name = "ExecutableActionPlanningError";
   }
 }
 
-export function createExecutionPlanner(config: ExecutionPlannerConfig = {}): ExecutionPlanner {
+export function createExecutableActionPlanner(config: ExecutableActionPlannerConfig = {}): ExecutableActionPlanner {
   return {
-    async plan(automation) {
-      const localPlan = createHeuristicPlan(automation);
+    async createPlan(automation) {
+      const localPlan = createHeuristicExecutableActionPlan(automation);
       const needsModelPlanning = localPlan.steps.some((step) =>
         step.actions.some((action) => action.type === "llm_desktop_task")
       );
@@ -114,13 +114,13 @@ export function createExecutionPlanner(config: ExecutionPlannerConfig = {}): Exe
 
       if (config.apiKey && config.model) {
         try {
-          return await planWithModel(automation, {
+          return await createModelExecutableActionPlan(automation, {
             ...config,
             apiKey: config.apiKey,
             model: config.model
           });
         } catch (error) {
-          console.warn("AutoM8 execution planner fell back to the local heuristic planner.", {
+          console.warn("AutoM8 executable action planner fell back to the local heuristic planner.", {
             error: error instanceof Error ? error.message : String(error)
           });
         }
@@ -131,7 +131,7 @@ export function createExecutionPlanner(config: ExecutionPlannerConfig = {}): Exe
   };
 }
 
-export function createHeuristicPlan(automation: SavedAutomation): ExecutableAutomationPlan {
+export function createHeuristicExecutableActionPlan(automation: SavedAutomationCandidate): ExecutableActionPlan {
   return {
     automationId: automation.id,
     steps: automation.steps.map((step) => ({
@@ -152,7 +152,7 @@ export function actionRequiresApproval(action: ExecutableAction): boolean {
 
 function inferActions(
   step: DraftAutomation["steps"][number],
-  automation: SavedAutomation
+  automation: SavedAutomationCandidate
 ): ExecutableAction[] {
   const text = `${step.title} ${step.description}`.toLowerCase();
   const actions: ExecutableAction[] = [];
@@ -199,21 +199,21 @@ function inferActions(
   return actions;
 }
 
-async function planWithModel(
-  automation: SavedAutomation,
-  config: Required<Pick<ExecutionPlannerConfig, "apiKey" | "model">> & ExecutionPlannerConfig
-): Promise<ExecutableAutomationPlan> {
+async function createModelExecutableActionPlan(
+  automation: SavedAutomationCandidate,
+  config: Required<Pick<ExecutableActionPlannerConfig, "apiKey" | "model">> & ExecutableActionPlannerConfig
+): Promise<ExecutableActionPlan> {
   const result = await requestOpenRouterStructuredOutput({
     apiKey: config.apiKey,
     model: config.model,
     baseUrl: config.baseUrl,
     fetchImpl: config.fetchImpl,
-    schema: EXECUTION_PLAN_SCHEMA,
+    schema: EXECUTABLE_ACTION_PLAN_SCHEMA,
     messages: [
       {
         role: "system",
         content:
-          "Convert saved AutoM8 desktop automation steps into a safe executable plan. Use deterministic DSL actions when concrete. Use llm_desktop_task for ambiguous perception or UI navigation. Insert approval_gate before any external side effect such as sending email, creating calendar events, submitting forms, deleting data, uploading files, purchases, or permission changes. Never emit shell commands."
+          "Convert saved AutoM8 desktop automation steps into a safe executable action plan. Use deterministic DSL actions when concrete. Use llm_desktop_task for ambiguous perception or UI navigation. Insert approval_gate before any external side effect such as sending email, creating calendar events, submitting forms, deleting data, uploading files, purchases, or permission changes. Never emit shell commands."
       },
       {
         role: "user",
@@ -226,74 +226,74 @@ async function planWithModel(
       }
     ],
     temperature: 0.1,
-    timeoutMs: PLAN_REQUEST_TIMEOUT_MS,
-    providerErrorFallback: "The configured execution planner rejected the request."
+    timeoutMs: ACTION_PLAN_REQUEST_TIMEOUT_MS,
+    providerErrorFallback: "The configured executable action planner rejected the request."
   });
 
   if (!result.ok) {
     if (result.kind === "provider") {
-      throw new ExecutionPlanningError("PLANNER_REQUEST_FAILED", result.message, 502);
+      throw new ExecutableActionPlanningError("ACTION_PLANNER_REQUEST_FAILED", result.message, 502);
     }
 
     if (result.kind === "timeout") {
-      throw new ExecutionPlanningError(
-        "PLANNER_REQUEST_TIMEOUT",
-        "The configured execution planner took too long to respond.",
+      throw new ExecutableActionPlanningError(
+        "ACTION_PLANNER_REQUEST_TIMEOUT",
+        "The configured executable action planner took too long to respond.",
         504
       );
     }
 
     if (result.kind === "invalid_json") {
-      throw invalidPlanError(config.model, result.stage ?? "assistant-json", result.providerStatus ?? 200);
+      throw invalidActionPlanError(config.model, result.stage ?? "assistant-json", result.providerStatus ?? 200);
     }
 
-    throw new ExecutionPlanningError(
-      "PLANNER_REQUEST_FAILED",
-      "AutoM8 could not reach the configured execution planner.",
+    throw new ExecutableActionPlanningError(
+      "ACTION_PLANNER_REQUEST_FAILED",
+      "AutoM8 could not reach the configured executable action planner.",
       502
     );
   }
 
-  return validateExecutablePlan(automation, result.parsedJson, config.model, result.providerStatus);
+  return validateExecutableActionPlan(automation, result.parsedJson, config.model, result.providerStatus);
 }
 
-export function validateExecutablePlan(
-  automation: SavedAutomation,
+export function validateExecutableActionPlan(
+  automation: SavedAutomationCandidate,
   value: unknown,
   model = "local",
   providerStatus = 200
-): ExecutableAutomationPlan {
+): ExecutableActionPlan {
   if (!isRecord(value) || !Array.isArray(value.steps) || value.steps.length === 0) {
-    throw invalidPlanError(model, "plan-shape", providerStatus);
+    throw invalidActionPlanError(model, "plan-shape", providerStatus);
   }
 
   return {
     automationId: automation.id,
-    steps: value.steps.map((step) => validateExecutableStep(step, model, providerStatus))
+    steps: value.steps.map((step) => validateExecutableActionPlanStep(step, model, providerStatus))
   };
 }
 
-function validateExecutableStep(
+function validateExecutableActionPlanStep(
   value: unknown,
   model: string,
   providerStatus: number
-): ExecutableAutomationStep {
+): ExecutableActionPlanStep {
   if (!isRecord(value)) {
-    throw invalidPlanError(model, "step-shape", providerStatus);
+    throw invalidActionPlanError(model, "step-shape", providerStatus);
   }
 
   const { title, nodeType, description, actions } = value;
   if (typeof title !== "string" || !title.trim()) {
-    throw invalidPlanError(model, "step-title", providerStatus);
+    throw invalidActionPlanError(model, "step-title", providerStatus);
   }
   if (!isNodeType(nodeType)) {
-    throw invalidPlanError(model, "step-node-type", providerStatus);
+    throw invalidActionPlanError(model, "step-node-type", providerStatus);
   }
   if (typeof description !== "string" || !description.trim()) {
-    throw invalidPlanError(model, "step-description", providerStatus);
+    throw invalidActionPlanError(model, "step-description", providerStatus);
   }
   if (!Array.isArray(actions) || actions.length === 0) {
-    throw invalidPlanError(model, "step-actions", providerStatus);
+    throw invalidActionPlanError(model, "step-actions", providerStatus);
   }
 
   return {
@@ -310,7 +310,7 @@ export function validateAction(
   providerStatus = 200
 ): ExecutableAction {
   if (!isRecord(value) || typeof value.type !== "string") {
-    throw invalidPlanError(model, "action-shape", providerStatus);
+    throw invalidActionPlanError(model, "action-shape", providerStatus);
   }
 
   switch (value.type) {
@@ -320,7 +320,7 @@ export function validateAction(
       const title = optionalString(value.title);
       const app = optionalString(value.app);
       if (!title && !app) {
-        throw invalidPlanError(model, "action-focus-target", providerStatus);
+        throw invalidActionPlanError(model, "action-focus-target", providerStatus);
       }
       return { type: "focus_window", title, app };
     }
@@ -361,7 +361,7 @@ export function validateAction(
         dataSummary: optionalString(value.dataSummary)
       };
     default:
-      throw invalidPlanError(model, "action-type", providerStatus);
+      throw invalidActionPlanError(model, "action-type", providerStatus);
   }
 }
 
@@ -398,20 +398,20 @@ function actionText(action: ExecutableAction): string {
 const riskyPattern =
   /\b(send|email|mail|schedule|calendar|appointment|meeting|event|submit|delete|remove|cancel|upload|purchase|buy|pay|permission|share|post)\b/i;
 
-function invalidPlanError(
+function invalidActionPlanError(
   model: string,
   stage: string,
   providerStatus: number
-): ExecutionPlanningError {
-  console.warn("AutoM8 execution planner returned an invalid response.", {
+): ExecutableActionPlanningError {
+  console.warn("AutoM8 executable action planner returned an invalid response.", {
     model,
     stage,
     providerStatus
   });
 
-  return new ExecutionPlanningError(
-    "INVALID_EXECUTION_PLAN",
-    "The configured execution planner did not return a runnable AutoM8 action plan.",
+  return new ExecutableActionPlanningError(
+    "INVALID_EXECUTABLE_ACTION_PLAN",
+    "The configured executable action planner did not return a runnable AutoM8 action plan.",
     502
   );
 }
@@ -423,7 +423,7 @@ function requireString(
   providerStatus: number
 ): string {
   if (typeof value !== "string" || !value.trim()) {
-    throw invalidPlanError(model, stage, providerStatus);
+    throw invalidActionPlanError(model, stage, providerStatus);
   }
 
   return value.trim();
@@ -440,7 +440,7 @@ function requireNumber(
   providerStatus: number
 ): number {
   if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw invalidPlanError(model, stage, providerStatus);
+    throw invalidActionPlanError(model, stage, providerStatus);
   }
 
   return value;

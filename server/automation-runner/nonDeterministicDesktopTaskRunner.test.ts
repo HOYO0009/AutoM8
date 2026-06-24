@@ -1,24 +1,24 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createAdaptiveDesktopExecutor } from "./adaptiveDesktopExecutor.js";
+import { createNonDeterministicDesktopTaskRunner } from "./nonDeterministicDesktopTaskRunner.js";
 import { DesktopDriver } from "../desktop/desktopDriver.js";
 
 const screenshotDataUrl = "data:image/png;base64,iVBORw0KGgo=";
 
-describe("createAdaptiveDesktopExecutor", () => {
+describe("createNonDeterministicDesktopTaskRunner", () => {
   it("executes one bounded action and verifies from fresh screenshot and accessibility evidence", async () => {
     const driver = mockDriver();
     const fetchImpl = vi
       .fn()
       .mockResolvedValueOnce(modelResponse({ decision: "act", reason: "Click the target.", action: { type: "click", x: 12, y: 34 } }))
       .mockResolvedValueOnce(modelResponse({ decision: "complete", reason: "Target is open." }));
-    const executor = createAdaptiveDesktopExecutor(driver, {
+    const executor = createNonDeterministicDesktopTaskRunner(driver, {
       apiKey: "key",
       model: "vision-model",
       fetchImpl
     });
 
-    const result = await executor.runTask({
+    const result = await executor.runNonDeterministicDesktopTask({
       type: "llm_desktop_task",
       goal: "Open the target",
       maxIterations: 2,
@@ -47,7 +47,7 @@ describe("createAdaptiveDesktopExecutor", () => {
   });
 
   it("fails when screenshot evidence is unavailable", async () => {
-    const executor = createAdaptiveDesktopExecutor(
+    const executor = createNonDeterministicDesktopTaskRunner(
       mockDriver({
         observeDesktop: vi.fn().mockResolvedValue({
           summary: "Window: Target app",
@@ -57,7 +57,7 @@ describe("createAdaptiveDesktopExecutor", () => {
       { apiKey: "key", model: "vision-model", fetchImpl: vi.fn() }
     );
 
-    const result = await executor.runTask({
+    const result = await executor.runNonDeterministicDesktopTask({
       type: "llm_desktop_task",
       goal: "Open the target",
       maxIterations: 1,
@@ -66,7 +66,7 @@ describe("createAdaptiveDesktopExecutor", () => {
 
     expect(result).toMatchObject({
       status: "failed",
-      message: "The adaptive desktop task needs screenshot and accessibility evidence before using the model."
+      message: "The non-deterministic desktop task needs screenshot and accessibility evidence before using the model."
     });
   });
 
@@ -83,13 +83,13 @@ describe("createAdaptiveDesktopExecutor", () => {
         }
       })
     );
-    const executor = createAdaptiveDesktopExecutor(mockDriver(), {
+    const executor = createNonDeterministicDesktopTaskRunner(mockDriver(), {
       apiKey: "key",
       model: "vision-model",
       fetchImpl
     });
 
-    const result = await executor.runTask({
+    const result = await executor.runNonDeterministicDesktopTask({
       type: "llm_desktop_task",
       goal: "Submit the form",
       maxIterations: 1,
@@ -116,13 +116,13 @@ describe("createAdaptiveDesktopExecutor", () => {
       .mockResolvedValueOnce(modelResponse({ decision: "act", reason: "Still not ready." }))
       .mockResolvedValueOnce(modelResponse({ decision: "act", reason: "Wait again.", action: { type: "wait", ms: 10 } }))
       .mockResolvedValueOnce(modelResponse({ decision: "act", reason: "Still not ready." }));
-    const executor = createAdaptiveDesktopExecutor(driver, {
+    const executor = createNonDeterministicDesktopTaskRunner(driver, {
       apiKey: "key",
       model: "vision-model",
       fetchImpl
     });
 
-    const result = await executor.runTask({
+    const result = await executor.runNonDeterministicDesktopTask({
       type: "llm_desktop_task",
       goal: "Wait for ready",
       maxIterations: 2,
@@ -131,7 +131,7 @@ describe("createAdaptiveDesktopExecutor", () => {
 
     expect(result).toMatchObject({
       status: "failed",
-      message: "The LLM-assisted desktop task reached its action limit."
+      message: "The non-deterministic desktop task reached its action limit."
     });
     expect(driver.wait).toHaveBeenCalledTimes(2);
     expect(result.logs.filter((log) => log.startsWith("Observation "))).toHaveLength(2);

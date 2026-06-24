@@ -8,9 +8,9 @@ import {
   DraftAutomation,
   DraftAutomationResponse,
   RunAutomationResponse,
-  SavedAutomation,
-  SavedAutomationsResponse,
-  SaveDraftAutomationResponse
+  SavedAutomationCandidate,
+  SavedAutomationCandidatesResponse,
+  SaveDraftAutomationCandidateResponse
 } from "../shared/draftAutomation";
 
 const examplePrompt =
@@ -22,7 +22,7 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedNotice, setSavedNotice] = useState<string | null>(null);
-  const [savedAutomations, setSavedAutomations] = useState<SavedAutomation[]>([]);
+  const [savedAutomationCandidates, setSavedAutomationCandidates] = useState<SavedAutomationCandidate[]>([]);
   const [automationRuns, setAutomationRuns] = useState<AutomationRun[]>([]);
   const [runErrors, setRunErrors] = useState<Record<string, string>>({});
   const [isGenerating, setIsGenerating] = useState(false);
@@ -52,20 +52,20 @@ export function App() {
   useEffect(() => {
     let isMounted = true;
 
-    async function loadSavedAutomations() {
+    async function loadSavedAutomationCandidates() {
       try {
         const response = await fetch("/api/saved-automations");
-        const payload = (await response.json()) as SavedAutomationsResponse | ApiErrorResponse;
+        const payload = (await response.json()) as SavedAutomationCandidatesResponse | ApiErrorResponse;
 
         if (isMounted && response.ok && !("error" in payload)) {
-          setSavedAutomations(payload.savedAutomations);
+          setSavedAutomationCandidates(payload.savedAutomationCandidates);
         }
       } catch {
         // Saved automations are still available after the next successful save.
       }
     }
 
-    void loadSavedAutomations();
+    void loadSavedAutomationCandidates();
     void loadAutomationRuns();
 
     return () => {
@@ -156,15 +156,15 @@ export function App() {
         body: JSON.stringify({ draft })
       });
 
-      const payload = (await response.json()) as SaveDraftAutomationResponse | ApiErrorResponse;
+      const payload = (await response.json()) as SaveDraftAutomationCandidateResponse | ApiErrorResponse;
 
       if (!response.ok || "error" in payload) {
         setSaveError("error" in payload ? payload.error.message : "AutoM8 could not save the draft.");
         return;
       }
 
-      setSavedAutomations(payload.savedAutomations);
-      setSavedNotice(`Saved "${payload.savedAutomation.name}".`);
+      setSavedAutomationCandidates(payload.savedAutomationCandidates);
+      setSavedNotice(`Saved "${payload.savedAutomationCandidate.name}".`);
     } catch {
       setSaveError("AutoM8 could not reach the local saved automation API.");
     } finally {
@@ -277,8 +277,8 @@ export function App() {
           ) : (
             <EmptyPreview isGenerating={isGenerating} />
           )}
-          <SavedAutomationList
-            savedAutomations={savedAutomations}
+          <SavedAutomationCandidateList
+            savedAutomationCandidates={savedAutomationCandidates}
             latestRunByAutomationId={latestRunByAutomationId}
             onRun={handleRunAutomation}
             onApproval={handleApproval}
@@ -354,22 +354,22 @@ function DraftPreview({
   );
 }
 
-function SavedAutomationList({
-  savedAutomations,
+function SavedAutomationCandidateList({
+  savedAutomationCandidates,
   latestRunByAutomationId,
   onRun,
   onApproval,
   runErrors,
   runningAutomationId
 }: {
-  savedAutomations: SavedAutomation[];
+  savedAutomationCandidates: SavedAutomationCandidate[];
   latestRunByAutomationId: Record<string, AutomationRun>;
   onRun: (automationId: string) => void;
   onApproval: (runId: string, approvalId: string, decision: "approve" | "deny") => void;
   runErrors: Record<string, string>;
   runningAutomationId: string | null;
 }) {
-  if (savedAutomations.length === 0) {
+  if (savedAutomationCandidates.length === 0) {
     return null;
   }
 
@@ -380,7 +380,7 @@ function SavedAutomationList({
         <h2>Automation candidates</h2>
       </div>
       <ol className="saved-list">
-        {savedAutomations.map((automation) => {
+        {savedAutomationCandidates.map((automation) => {
           const latestRun = latestRunByAutomationId[automation.id];
           const runError = runErrors[automation.id];
           const isActive = latestRun ? ["queued", "running", "waiting_for_approval"].includes(latestRun.status) : false;

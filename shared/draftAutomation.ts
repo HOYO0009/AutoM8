@@ -20,7 +20,7 @@ export interface DraftAutomation {
   steps: DraftAutomationStep[];
 }
 
-export interface SavedAutomation extends DraftAutomation {
+export interface SavedAutomationCandidate extends DraftAutomation {
   id: string;
   createdAt: string;
 }
@@ -73,13 +73,13 @@ export type ExecutableAction =
       dataSummary?: string;
     };
 
-export interface ExecutableAutomationStep extends DraftAutomationStep {
+export interface ExecutableActionPlanStep extends DraftAutomationStep {
   actions: ExecutableAction[];
 }
 
-export interface ExecutableAutomationPlan {
+export interface ExecutableActionPlan {
   automationId: string;
-  steps: ExecutableAutomationStep[];
+  steps: ExecutableActionPlanStep[];
 }
 
 export type AutomationRunStatus =
@@ -138,12 +138,12 @@ export interface DraftAutomationResponse {
   draft: DraftAutomation;
 }
 
-export interface SavedAutomationsResponse {
-  savedAutomations: SavedAutomation[];
+export interface SavedAutomationCandidatesResponse {
+  savedAutomationCandidates: SavedAutomationCandidate[];
 }
 
-export interface SaveDraftAutomationResponse extends SavedAutomationsResponse {
-  savedAutomation: SavedAutomation;
+export interface SaveDraftAutomationCandidateResponse extends SavedAutomationCandidatesResponse {
+  savedAutomationCandidate: SavedAutomationCandidate;
 }
 
 export interface RunAutomationResponse {

@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { createSavedAutomationStore, SaveAutomationError } from "./savedAutomationStore.js";
+import { createSavedAutomationCandidateStore, SaveAutomationCandidateError } from "./savedAutomationCandidateStore.js";
 
-describe("createSavedAutomationStore", () => {
+describe("createSavedAutomationCandidateStore", () => {
   it("saves a generated draft with an ID and creation time", () => {
-    const store = createSavedAutomationStore({
+    const store = createSavedAutomationCandidateStore({
       idFactory: () => "saved-1",
       now: () => new Date("2026-06-24T12:00:00.000Z")
     });
 
-    const savedAutomation = store.save({
+    const savedAutomationCandidate = store.save({
       name: "Send report",
       summary: "Collect the report and email it to the team.",
       steps: [
@@ -21,7 +21,7 @@ describe("createSavedAutomationStore", () => {
       ]
     });
 
-    expect(savedAutomation).toEqual({
+    expect(savedAutomationCandidate).toEqual({
       id: "saved-1",
       createdAt: "2026-06-24T12:00:00.000Z",
       name: "Send report",
@@ -34,13 +34,13 @@ describe("createSavedAutomationStore", () => {
         }
       ]
     });
-    expect(store.list()).toEqual([savedAutomation]);
+    expect(store.list()).toEqual([savedAutomationCandidate]);
   });
 
   it("rejects saving when no valid draft is provided", () => {
-    const store = createSavedAutomationStore();
+    const store = createSavedAutomationCandidateStore();
 
-    expect(() => store.save(undefined)).toThrow(SaveAutomationError);
+    expect(() => store.save(undefined)).toThrow(SaveAutomationCandidateError);
     expect(() => store.save({ name: "Empty", summary: "No steps", steps: [] })).toThrow(
       "Generate a draft automation before saving."
     );

@@ -1,11 +1,11 @@
 import { ExecutableAction } from "../../shared/draftAutomation.js";
 import { DesktopDriver, DesktopObservation } from "../desktop/desktopDriver.js";
-import { validateAction } from "./executionPlanner.js";
+import { validateAction } from "./executableActionPlanner.js";
 import { requestOpenRouterStructuredOutput } from "../llm/openRouterStructuredOutput.js";
 
-const ADAPTIVE_REQUEST_TIMEOUT_MS = 30_000;
-const ADAPTIVE_ACTION_SCHEMA = {
-  name: "AdaptiveDesktopAction",
+const NON_DETERMINISTIC_TASK_REQUEST_TIMEOUT_MS = 30_000;
+const NON_DETERMINISTIC_DESKTOP_TASK_ACTION_SCHEMA = {
+  name: "NonDeterministicDesktopTaskAction",
   strict: true,
   schema: {
     type: "object",
@@ -43,35 +43,35 @@ const ADAPTIVE_ACTION_SCHEMA = {
   }
 } as const;
 
-export interface AdaptiveDesktopExecutorConfig {
+export interface NonDeterministicDesktopTaskRunnerConfig {
   apiKey?: string;
   model?: string;
   baseUrl?: string;
   fetchImpl?: typeof fetch;
 }
 
-export interface AdaptiveExecutionResult {
+export interface NonDeterministicDesktopTaskResult {
   status: "completed" | "failed" | "waiting_for_approval";
   message: string;
   logs: string[];
   approval?: Extract<ExecutableAction, { type: "approval_gate" }>;
 }
 
-export interface AdaptiveDesktopExecutor {
-  runTask(task: Extract<ExecutableAction, { type: "llm_desktop_task" }>): Promise<AdaptiveExecutionResult>;
+export interface NonDeterministicDesktopTaskRunner {
+  runNonDeterministicDesktopTask(task: Extract<ExecutableAction, { type: "llm_desktop_task" }>): Promise<NonDeterministicDesktopTaskResult>;
 }
 
-export function createAdaptiveDesktopExecutor(
+export function createNonDeterministicDesktopTaskRunner(
   driver: DesktopDriver,
-  config: AdaptiveDesktopExecutorConfig = {}
-): AdaptiveDesktopExecutor {
+  config: NonDeterministicDesktopTaskRunnerConfig = {}
+): NonDeterministicDesktopTaskRunner {
   return {
-    async runTask(task) {
+    async runNonDeterministicDesktopTask(task) {
       if (!config.apiKey || !config.model) {
         return {
           status: "failed",
           message:
-            "This step needs an OpenRouter model for LLM-assisted desktop control. Set OPENROUTER_API_KEY and OPENROUTER_MODEL, then run it again.",
+            "This step needs an OpenRouter model for non-deterministic desktop task control. Set OPENROUTER_API_KEY and OPENROUTER_MODEL, then run it again.",
           logs: []
         };
       }
@@ -84,7 +84,7 @@ export function createAdaptiveDesktopExecutor(
           if (Date.now() - startedAt > task.timeoutMs) {
             return {
               status: "failed",
-              message: "The LLM-assisted desktop task timed out.",
+              message: "The non-deterministic desktop task timed out.",
               logs
             };
           }
@@ -101,7 +101,7 @@ export function createAdaptiveDesktopExecutor(
           if (decision.decision === "complete") {
             return {
               status: "completed",
-              message: decision.reason || "The model judged the desktop task complete.",
+              message: decision.reason || "The model judged the non-deterministic desktop task complete.",
               logs
             };
           }
@@ -109,7 +109,7 @@ export function createAdaptiveDesktopExecutor(
           if (decision.decision === "fail") {
             return {
               status: "failed",
-              message: decision.reason || "The model could not complete the desktop task.",
+              message: decision.reason || "The model could not complete the non-deterministic desktop task.",
               logs
             };
           }
@@ -126,7 +126,7 @@ export function createAdaptiveDesktopExecutor(
           if (action.type === "launch_app" || action.type === "llm_desktop_task") {
             return {
               status: "failed",
-              message: "The adaptive loop can only use bounded desktop actions after planning.",
+              message: "The non-deterministic desktop task can only use bounded desktop actions after planning.",
               logs
             };
           }
@@ -140,7 +140,7 @@ export function createAdaptiveDesktopExecutor(
             };
           }
 
-          const result = await executeAdaptiveAction(driver, action);
+          const result = await executeNonDeterministicTaskAction(driver, action);
           logs.push(result);
           const verificationObservation = await observeWithRequiredEvidence(driver);
           logs.push(`Verification observation ${iteration}: ${verificationObservation.summary}`);
@@ -154,7 +154,7 @@ export function createAdaptiveDesktopExecutor(
           if (verification.decision === "complete") {
             return {
               status: "completed",
-              message: verification.reason || "The model verified the desktop task from fresh evidence.",
+              message: verification.reason || "The model verified the non-deterministic desktop task from fresh evidence.",
               logs
             };
           }
@@ -162,7 +162,7 @@ export function createAdaptiveDesktopExecutor(
           if (verification.decision === "fail") {
             return {
               status: "failed",
-              message: verification.reason || "The model could not verify the desktop task from fresh evidence.",
+              message: verification.reason || "The model could not verify the non-deterministic desktop task from fresh evidence.",
               logs
             };
           }
@@ -172,21 +172,21 @@ export function createAdaptiveDesktopExecutor(
       } catch (error) {
         return {
           status: "failed",
-          message: error instanceof Error ? error.message : "The adaptive desktop task failed.",
+          message: error instanceof Error ? error.message : "The non-deterministic desktop task failed.",
           logs
         };
       }
 
       return {
         status: "failed",
-        message: "The LLM-assisted desktop task reached its action limit.",
+        message: "The non-deterministic desktop task reached its action limit.",
         logs
       };
     }
   };
 }
 
-async function executeAdaptiveAction(
+async function executeNonDeterministicTaskAction(
   driver: DesktopDriver,
   action: Exclude<ExecutableAction, { type: "launch_app" | "llm_desktop_task" }>
 ): Promise<string> {
@@ -213,7 +213,7 @@ async function executeAdaptiveAction(
 async function observeWithRequiredEvidence(driver: DesktopDriver): Promise<Required<DesktopObservation>> {
   const observation = await driver.observeDesktop();
   if (!observation.screenshotDataUrl?.startsWith("data:image/png;base64,") || !observation.accessibility?.trim()) {
-    throw new Error("The adaptive desktop task needs screenshot and accessibility evidence before using the model.");
+    throw new Error("The non-deterministic desktop task needs screenshot and accessibility evidence before using the model.");
   }
 
   return {
@@ -227,14 +227,14 @@ async function requestNextAction(
   goal: string,
   observation: Required<DesktopObservation>,
   phase: "action" | "verification",
-  config: Required<Pick<AdaptiveDesktopExecutorConfig, "apiKey" | "model">> & AdaptiveDesktopExecutorConfig
+  config: Required<Pick<NonDeterministicDesktopTaskRunnerConfig, "apiKey" | "model">> & NonDeterministicDesktopTaskRunnerConfig
 ): Promise<{ decision: "act" | "complete" | "fail"; reason: string; action?: unknown }> {
   const result = await requestOpenRouterStructuredOutput({
     apiKey: config.apiKey,
     model: config.model,
     baseUrl: config.baseUrl,
     fetchImpl: config.fetchImpl,
-    schema: ADAPTIVE_ACTION_SCHEMA,
+    schema: NON_DETERMINISTIC_DESKTOP_TASK_ACTION_SCHEMA,
     messages: [
       {
         role: "system",
@@ -269,8 +269,8 @@ async function requestNextAction(
       }
     ],
     temperature: 0.1,
-    timeoutMs: ADAPTIVE_REQUEST_TIMEOUT_MS,
-    providerErrorFallback: "The configured adaptive desktop model rejected the request."
+    timeoutMs: NON_DETERMINISTIC_TASK_REQUEST_TIMEOUT_MS,
+    providerErrorFallback: "The configured non-deterministic desktop task model rejected the request."
   });
 
   if (!result.ok) {
@@ -286,7 +286,7 @@ async function requestNextAction(
       reason:
         result.kind === "timeout"
           ? "The model took too long to choose the next desktop action."
-          : "AutoM8 could not reach the configured adaptive desktop model."
+          : "AutoM8 could not reach the configured non-deterministic desktop task model."
     };
   }
 
@@ -294,7 +294,7 @@ async function requestNextAction(
   if (!isRecord(parsed) || !isDecision(parsed.decision) || typeof parsed.reason !== "string") {
     return {
       decision: "fail",
-      reason: "The model returned an invalid adaptive desktop decision."
+      reason: "The model returned an invalid non-deterministic desktop task decision."
     };
   }
 

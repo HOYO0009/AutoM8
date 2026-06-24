@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { SavedAutomation } from "../../shared/draftAutomation.js";
-import { actionRequiresApproval, createExecutionPlanner, createHeuristicPlan, validateAction, validateExecutablePlan } from "./executionPlanner.js";
+import { SavedAutomationCandidate } from "../../shared/draftAutomation.js";
+import { actionRequiresApproval, createExecutableActionPlanner, createHeuristicExecutableActionPlan, validateAction, validateExecutableActionPlan } from "./executableActionPlanner.js";
 
-describe("createHeuristicPlan", () => {
+describe("createHeuristicExecutableActionPlan", () => {
   it("turns concrete Notepad instructions into deterministic actions", () => {
-    const plan = createHeuristicPlan(
-      savedAutomation({
+    const plan = createHeuristicExecutableActionPlan(
+      savedAutomationCandidate({
         steps: [
           {
             title: "Open Notepad",
@@ -24,9 +24,9 @@ describe("createHeuristicPlan", () => {
     ]);
   });
 
-  it("adds approval before side-effect work and keeps ambiguous work adaptive", () => {
-    const plan = createHeuristicPlan(
-      savedAutomation({
+  it("adds approval before side-effect work and keeps ambiguous work non-deterministic", () => {
+    const plan = createHeuristicExecutableActionPlan(
+      savedAutomationCandidate({
         steps: [
           {
             title: "Schedule event",
@@ -49,9 +49,9 @@ describe("createHeuristicPlan", () => {
   });
 });
 
-describe("createExecutionPlanner", () => {
+describe("createExecutableActionPlanner", () => {
   it("falls back to the local planner when configured model planning fails", async () => {
-    const planner = createExecutionPlanner({
+    const planner = createExecutableActionPlanner({
       apiKey: "key",
       model: "model",
       fetchImpl: async () =>
@@ -61,8 +61,8 @@ describe("createExecutionPlanner", () => {
         })
     });
 
-    const plan = await planner.plan(
-      savedAutomation({
+    const plan = await planner.createPlan(
+      savedAutomationCandidate({
         steps: [
           {
             title: "Open Notepad",
@@ -78,14 +78,14 @@ describe("createExecutionPlanner", () => {
 
   it("does not call the model for fully deterministic local plans", async () => {
     const fetchImpl = vi.fn();
-    const planner = createExecutionPlanner({
+    const planner = createExecutableActionPlanner({
       apiKey: "key",
       model: "model",
       fetchImpl
     });
 
-    const plan = await planner.plan(
-      savedAutomation({
+    const plan = await planner.createPlan(
+      savedAutomationCandidate({
         steps: [
           {
             title: "Open Notepad",
@@ -101,10 +101,10 @@ describe("createExecutionPlanner", () => {
   });
 });
 
-describe("validateExecutablePlan", () => {
+describe("validateExecutableActionPlan", () => {
   it("rejects invalid model actions", () => {
     expect(() =>
-      validateExecutablePlan(savedAutomation(), {
+      validateExecutableActionPlan(savedAutomationCandidate(), {
         steps: [
           {
             title: "Bad",
@@ -114,10 +114,10 @@ describe("validateExecutablePlan", () => {
           }
         ]
       })
-    ).toThrow("The configured execution planner did not return a runnable AutoM8 action plan.");
+    ).toThrow("The configured executable action planner did not return a runnable AutoM8 action plan.");
   });
 
-  it("bounds adaptive loop controls", () => {
+  it("bounds non-deterministic desktop task controls", () => {
     expect(
       validateAction({
         type: "llm_desktop_task",
@@ -148,7 +148,7 @@ describe("actionRequiresApproval", () => {
   });
 });
 
-function savedAutomation(overrides: Partial<SavedAutomation> = {}): SavedAutomation {
+function savedAutomationCandidate(overrides: Partial<SavedAutomationCandidate> = {}): SavedAutomationCandidate {
   return {
     id: "saved-1",
     createdAt: "2026-06-24T11:00:00.000Z",

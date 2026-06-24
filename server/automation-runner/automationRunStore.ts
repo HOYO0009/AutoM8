@@ -6,12 +6,12 @@ import {
   AutomationRunLog,
   AutomationStepRun,
   ExecutableAction,
-  ExecutableAutomationPlan,
-  SavedAutomation
+  ExecutableActionPlan,
+  SavedAutomationCandidate
 } from "../../shared/draftAutomation.js";
-import { AdaptiveDesktopExecutor } from "./adaptiveDesktopExecutor.js";
+import { NonDeterministicDesktopTaskRunner } from "./nonDeterministicDesktopTaskRunner.js";
 import { DesktopDriver } from "../desktop/desktopDriver.js";
-import { actionRequiresApproval, ExecutionPlanner } from "./executionPlanner.js";
+import { actionRequiresApproval, ExecutableActionPlanner } from "./executableActionPlanner.js";
 
 export class RunAutomationError extends Error {
   constructor(
@@ -27,15 +27,15 @@ export class RunAutomationError extends Error {
 export interface AutomationRunManagerConfig {
   idFactory?: () => string;
   now?: () => Date;
-  planner: ExecutionPlanner;
+  actionPlanner: ExecutableActionPlanner;
   driver: DesktopDriver;
-  adaptiveExecutor: AdaptiveDesktopExecutor;
+  nonDeterministicTaskRunner: NonDeterministicDesktopTaskRunner;
 }
 
 export function createAutomationRunManager(config: AutomationRunManagerConfig) {
   const runs: AutomationRun[] = [];
   const continuations = new Map<string, Promise<void>>();
-  const plans = new Map<string, ExecutableAutomationPlan>();
+  const plans = new Map<string, ExecutableActionPlan>();
   const idFactory = config.idFactory ?? randomUUID;
   const now = config.now ?? (() => new Date());
 
@@ -60,7 +60,7 @@ export function createAutomationRunManager(config: AutomationRunManagerConfig) {
     return run;
   }
 
-  async function executeRun(run: AutomationRun, automation: SavedAutomation, startStepIndex = 0): Promise<void> {
+  async function executeRun(run: AutomationRun, automation: SavedAutomationCandidate, startStepIndex = 0): Promise<void> {
     try {
       if (run.status === "queued") {
         run.status = "running";
@@ -68,7 +68,7 @@ export function createAutomationRunManager(config: AutomationRunManagerConfig) {
 
       let plan = plans.get(run.id);
       if (!plan) {
-        plan = await config.planner.plan(automation);
+        plan = await config.actionPlanner.createPlan(automation);
         plans.set(run.id, plan);
         addRunLog(run, "Created executable action plan.");
       }
@@ -116,20 +116,20 @@ export function createAutomationRunManager(config: AutomationRunManagerConfig) {
           }
 
           if (action.type === "llm_desktop_task") {
-            const result = await config.adaptiveExecutor.runTask(action);
+            const result = await config.nonDeterministicTaskRunner.runNonDeterministicDesktopTask(action);
             for (const log of result.logs) {
               addStepLog(step, log);
             }
 
             if (result.status === "failed") {
-              throw new RunAutomationError("ADAPTIVE_STEP_FAILED", result.message, 422);
+              throw new RunAutomationError("NON_DETERMINISTIC_STEP_FAILED", result.message, 422);
             }
 
             if (result.status === "waiting_for_approval") {
               if (!result.approval) {
                 throw new RunAutomationError(
-                  "ADAPTIVE_APPROVAL_MISSING",
-                  "The adaptive desktop task paused without approval details.",
+                  "NON_DETERMINISTIC_APPROVAL_MISSING",
+                  "The non-deterministic desktop task paused without approval details.",
                   422
                 );
               }
@@ -193,7 +193,7 @@ export function createAutomationRunManager(config: AutomationRunManagerConfig) {
       case "verify_text":
         return config.driver.verifyText(action.text);
       case "llm_desktop_task":
-        throw new RunAutomationError("ADAPTIVE_STEP_UNHANDLED", "The adaptive desktop task was not handled.", 500);
+        throw new RunAutomationError("NON_DETERMINISTIC_STEP_UNHANDLED", "The non-deterministic desktop task was not handled.", 500);
       case "approval_gate":
         return `Approval gate passed for ${action.action}.`;
     }
@@ -220,7 +220,7 @@ export function createAutomationRunManager(config: AutomationRunManagerConfig) {
     return approval;
   }
 
-  function continueRun(run: AutomationRun, automation: SavedAutomation, startStepIndex: number): void {
+  function continueRun(run: AutomationRun, automation: SavedAutomationCandidate, startStepIndex: number): void {
     const continuation = executeRun(run, automation, startStepIndex).finally(() => {
       continuations.delete(run.id);
     });
@@ -236,7 +236,7 @@ export function createAutomationRunManager(config: AutomationRunManagerConfig) {
       return cloneRun(findRun(id));
     },
 
-    start(automation: SavedAutomation | undefined): AutomationRun {
+    start(automation: SavedAutomationCandidate | undefined): AutomationRun {
       if (!automation) {
         throw new RunAutomationError(
           "AUTOMATION_NOT_FOUND",
@@ -266,7 +266,7 @@ export function createAutomationRunManager(config: AutomationRunManagerConfig) {
       return cloneRun(run);
     },
 
-    approve(runId: string, approvalId: string, automation: SavedAutomation | undefined): AutomationRun {
+    approve(runId: string, approvalId: string, automation: SavedAutomationCandidate | undefined): AutomationRun {
       if (!automation) {
         throw new RunAutomationError("AUTOMATION_NOT_FOUND", "The saved automation for this run is missing.", 404);
       }

@@ -1,19 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ExecutableAutomationPlan, SavedAutomation } from "../../shared/draftAutomation.js";
-import { AdaptiveDesktopExecutor } from "./adaptiveDesktopExecutor.js";
+import { ExecutableActionPlan, SavedAutomationCandidate } from "../../shared/draftAutomation.js";
+import { NonDeterministicDesktopTaskRunner } from "./nonDeterministicDesktopTaskRunner.js";
 import { DesktopDriver } from "../desktop/desktopDriver.js";
 import { createAutomationRunManager, RunAutomationError } from "./automationRunStore.js";
-import { ExecutionPlanner } from "./executionPlanner.js";
+import { ExecutableActionPlanner } from "./executableActionPlanner.js";
 
 describe("createAutomationRunManager", () => {
   it("runs deterministic desktop actions asynchronously with step logs", async () => {
-    const automation = savedAutomation();
+    const automation = savedAutomationCandidate();
     const driver = mockDriver();
     const runManager = createAutomationRunManager({
       idFactory: sequentialIds("run-1"),
       now: () => new Date("2026-06-24T12:00:00.000Z"),
-      planner: plannerFor({
+      actionPlanner: plannerFor({
         automationId: "saved-1",
         steps: [
           {
@@ -28,7 +28,7 @@ describe("createAutomationRunManager", () => {
         ]
       }),
       driver,
-      adaptiveExecutor: mockAdaptiveExecutor()
+      nonDeterministicTaskRunner: mockNonDeterministicTaskRunner()
     });
 
     const run = runManager.start(automation);
@@ -49,7 +49,7 @@ describe("createAutomationRunManager", () => {
   });
 
   it("pauses for approval before side-effect actions and resumes after approval", async () => {
-    const automation = savedAutomation({
+    const automation = savedAutomationCandidate({
       steps: [
         {
           title: "Schedule calendar event",
@@ -66,7 +66,7 @@ describe("createAutomationRunManager", () => {
     const runManager = createAutomationRunManager({
       idFactory: sequentialIds("run-1", "approval-1"),
       now: () => new Date("2026-06-24T12:00:00.000Z"),
-      planner: plannerFor({
+      actionPlanner: plannerFor({
         automationId: "saved-1",
         steps: [
           {
@@ -92,10 +92,10 @@ describe("createAutomationRunManager", () => {
         ]
       }),
       driver: mockDriver(),
-      adaptiveExecutor: mockAdaptiveExecutor({
+      nonDeterministicTaskRunner: mockNonDeterministicTaskRunner({
         status: "completed",
         message: "Calendar event created.",
-        logs: ["Used bounded adaptive action."]
+        logs: ["Used bounded non-deterministic desktop task action."]
       })
     });
 
@@ -126,11 +126,11 @@ describe("createAutomationRunManager", () => {
   });
 
   it("fails a run when approval is denied", async () => {
-    const automation = savedAutomation();
+    const automation = savedAutomationCandidate();
     const runManager = createAutomationRunManager({
       idFactory: sequentialIds("run-1", "approval-1"),
       now: () => new Date("2026-06-24T12:00:00.000Z"),
-      planner: plannerFor({
+      actionPlanner: plannerFor({
         automationId: "saved-1",
         steps: [
           {
@@ -149,7 +149,7 @@ describe("createAutomationRunManager", () => {
         ]
       }),
       driver: mockDriver(),
-      adaptiveExecutor: mockAdaptiveExecutor()
+      nonDeterministicTaskRunner: mockNonDeterministicTaskRunner()
     });
 
     const run = runManager.start(automation);
@@ -164,9 +164,9 @@ describe("createAutomationRunManager", () => {
     });
   });
 
-  it("pauses and resumes when an adaptive desktop task requests approval", async () => {
-    const automation = savedAutomation();
-    const adaptiveExecutor = mockAdaptiveExecutor(
+  it("pauses and resumes when a non-deterministic desktop task requests approval", async () => {
+    const automation = savedAutomationCandidate();
+    const nonDeterministicTaskRunner = mockNonDeterministicTaskRunner(
       {
         status: "waiting_for_approval",
         message: "Approve before submitting.",
@@ -187,9 +187,9 @@ describe("createAutomationRunManager", () => {
     const runManager = createAutomationRunManager({
       idFactory: sequentialIds("run-1", "approval-1"),
       now: () => new Date("2026-06-24T12:00:00.000Z"),
-      planner: plannerFor(adaptivePlan()),
+      actionPlanner: plannerFor(nonDeterministicTaskPlan()),
       driver: mockDriver(),
-      adaptiveExecutor
+      nonDeterministicTaskRunner
     });
 
     const run = runManager.start(automation);
@@ -223,14 +223,14 @@ describe("createAutomationRunManager", () => {
     expect(completedRun.steps[0].logs.map((log) => log.message)).toContain("Submitted.");
   });
 
-  it("fails when an adaptive desktop approval is denied", async () => {
-    const automation = savedAutomation();
+  it("fails when a non-deterministic desktop task approval is denied", async () => {
+    const automation = savedAutomationCandidate();
     const runManager = createAutomationRunManager({
       idFactory: sequentialIds("run-1", "approval-1"),
       now: () => new Date("2026-06-24T12:00:00.000Z"),
-      planner: plannerFor(adaptivePlan()),
+      actionPlanner: plannerFor(nonDeterministicTaskPlan()),
       driver: mockDriver(),
-      adaptiveExecutor: mockAdaptiveExecutor({
+      nonDeterministicTaskRunner: mockNonDeterministicTaskRunner({
         status: "waiting_for_approval",
         message: "Approve before submitting.",
         logs: ["Observation 1: form ready"],
@@ -257,9 +257,9 @@ describe("createAutomationRunManager", () => {
 
   it("rejects running an unknown saved automation", () => {
     const runManager = createAutomationRunManager({
-      planner: plannerFor({ automationId: "saved-1", steps: [] }),
+      actionPlanner: plannerFor({ automationId: "saved-1", steps: [] }),
       driver: mockDriver(),
-      adaptiveExecutor: mockAdaptiveExecutor()
+      nonDeterministicTaskRunner: mockNonDeterministicTaskRunner()
     });
 
     expect(() => runManager.start(undefined)).toThrow(RunAutomationError);
@@ -267,7 +267,7 @@ describe("createAutomationRunManager", () => {
   });
 });
 
-function savedAutomation(overrides: Partial<SavedAutomation> = {}): SavedAutomation {
+function savedAutomationCandidate(overrides: Partial<SavedAutomationCandidate> = {}): SavedAutomationCandidate {
   return {
     id: "saved-1",
     createdAt: "2026-06-24T11:00:00.000Z",
@@ -284,7 +284,7 @@ function savedAutomation(overrides: Partial<SavedAutomation> = {}): SavedAutomat
   };
 }
 
-function adaptivePlan(): ExecutableAutomationPlan {
+function nonDeterministicTaskPlan(): ExecutableActionPlan {
   return {
     automationId: "saved-1",
     steps: [
@@ -298,9 +298,9 @@ function adaptivePlan(): ExecutableAutomationPlan {
   };
 }
 
-function plannerFor(plan: ExecutableAutomationPlan): ExecutionPlanner {
+function plannerFor(plan: ExecutableActionPlan): ExecutableActionPlanner {
   return {
-    plan: vi.fn().mockResolvedValue(plan)
+    createPlan: vi.fn().mockResolvedValue(plan)
   };
 }
 
@@ -325,13 +325,13 @@ function mockDriver(): DesktopDriver & {
   };
 }
 
-function mockAdaptiveExecutor(
-  ...results: Awaited<ReturnType<AdaptiveDesktopExecutor["runTask"]>>[]
-): AdaptiveDesktopExecutor {
-  const queuedResults = results.length > 0 ? results : [{ status: "failed" as const, message: "Adaptive failed.", logs: [] }];
+function mockNonDeterministicTaskRunner(
+  ...results: Awaited<ReturnType<NonDeterministicDesktopTaskRunner["runNonDeterministicDesktopTask"]>>[]
+): NonDeterministicDesktopTaskRunner {
+  const queuedResults = results.length > 0 ? results : [{ status: "failed" as const, message: "Non-deterministic desktop task failed.", logs: [] }];
 
   return {
-    runTask: vi.fn().mockImplementation(() => Promise.resolve(queuedResults.shift() ?? queuedResults[0]))
+    runNonDeterministicDesktopTask: vi.fn().mockImplementation(() => Promise.resolve(queuedResults.shift() ?? queuedResults[0]))
   };
 }
 
