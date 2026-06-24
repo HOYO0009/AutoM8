@@ -164,6 +164,97 @@ describe("createAutomationRunManager", () => {
     });
   });
 
+  it("pauses and resumes when an adaptive desktop task requests approval", async () => {
+    const automation = savedAutomation();
+    const adaptiveExecutor = mockAdaptiveExecutor(
+      {
+        status: "waiting_for_approval",
+        message: "Approve before submitting.",
+        logs: ["Observation 1: form ready"],
+        approval: {
+          type: "approval_gate",
+          action: "Submit form",
+          destination: "form",
+          dataSummary: "Submit the visible form."
+        }
+      },
+      {
+        status: "completed",
+        message: "Submitted.",
+        logs: ["Verification observation 1: submitted"]
+      }
+    );
+    const runManager = createAutomationRunManager({
+      idFactory: sequentialIds("run-1", "approval-1"),
+      now: () => new Date("2026-06-24T12:00:00.000Z"),
+      planner: plannerFor(adaptivePlan()),
+      driver: mockDriver(),
+      adaptiveExecutor
+    });
+
+    const run = runManager.start(automation);
+    await runManager.whenIdle(run.id);
+
+    const waitingRun = runManager.get(run.id);
+    expect(waitingRun.status).toBe("waiting_for_approval");
+    expect(waitingRun.approvals).toEqual([
+      {
+        id: "approval-1",
+        stepIndex: 0,
+        title: "Open Notepad",
+        action: "Submit form",
+        destination: "form",
+        dataSummary: "Submit the visible form.",
+        status: "pending"
+      }
+    ]);
+    expect(waitingRun.steps[0].logs.map((log) => log.message)).toContain("Observation 1: form ready");
+
+    runManager.approve(run.id, "approval-1", automation);
+    await runManager.whenIdle(run.id);
+
+    const completedRun = runManager.get(run.id);
+    expect(completedRun.status).toBe("completed");
+    expect(completedRun.approvals[0].status).toBe("approved");
+    expect(completedRun.steps[0]).toMatchObject({
+      status: "completed",
+      message: "Completed real desktop runner actions."
+    });
+    expect(completedRun.steps[0].logs.map((log) => log.message)).toContain("Submitted.");
+  });
+
+  it("fails when an adaptive desktop approval is denied", async () => {
+    const automation = savedAutomation();
+    const runManager = createAutomationRunManager({
+      idFactory: sequentialIds("run-1", "approval-1"),
+      now: () => new Date("2026-06-24T12:00:00.000Z"),
+      planner: plannerFor(adaptivePlan()),
+      driver: mockDriver(),
+      adaptiveExecutor: mockAdaptiveExecutor({
+        status: "waiting_for_approval",
+        message: "Approve before submitting.",
+        logs: ["Observation 1: form ready"],
+        approval: {
+          type: "approval_gate",
+          action: "Submit form",
+          destination: "form",
+          dataSummary: "Submit the visible form."
+        }
+      })
+    });
+
+    const run = runManager.start(automation);
+    await runManager.whenIdle(run.id);
+
+    const deniedRun = runManager.deny(run.id, "approval-1");
+    expect(deniedRun.status).toBe("failed");
+    expect(deniedRun.approvals[0].status).toBe("denied");
+    expect(deniedRun.steps[0]).toMatchObject({
+      status: "failed",
+      message: "Approval denied."
+    });
+  });
+
   it("rejects running an unknown saved automation", () => {
     const runManager = createAutomationRunManager({
       planner: plannerFor({ automationId: "saved-1", steps: [] }),
@@ -190,6 +281,20 @@ function savedAutomation(overrides: Partial<SavedAutomation> = {}): SavedAutomat
       }
     ],
     ...overrides
+  };
+}
+
+function adaptivePlan(): ExecutableAutomationPlan {
+  return {
+    automationId: "saved-1",
+    steps: [
+      {
+        title: "Open Notepad",
+        nodeType: "llm",
+        description: "Finish the visible task.",
+        actions: [{ type: "llm_desktop_task", goal: "Finish the visible task", maxIterations: 2, timeoutMs: 1000 }]
+      }
+    ]
   };
 }
 
@@ -221,10 +326,12 @@ function mockDriver(): DesktopDriver & {
 }
 
 function mockAdaptiveExecutor(
-  result = { status: "failed" as const, message: "Adaptive failed.", logs: [] }
+  ...results: Awaited<ReturnType<AdaptiveDesktopExecutor["runTask"]>>[]
 ): AdaptiveDesktopExecutor {
+  const queuedResults = results.length > 0 ? results : [{ status: "failed" as const, message: "Adaptive failed.", logs: [] }];
+
   return {
-    runTask: vi.fn().mockResolvedValue(result)
+    runTask: vi.fn().mockImplementation(() => Promise.resolve(queuedResults.shift() ?? queuedResults[0]))
   };
 }
 

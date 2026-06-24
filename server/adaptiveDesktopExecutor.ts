@@ -1,5 +1,5 @@
 import { ExecutableAction } from "../shared/draftAutomation.js";
-import { DesktopDriver } from "./desktopDriver.js";
+import { DesktopDriver, DesktopObservation } from "./desktopDriver.js";
 import { validateAction } from "./executionPlanner.js";
 
 const DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
@@ -51,9 +51,10 @@ export interface AdaptiveDesktopExecutorConfig {
 }
 
 export interface AdaptiveExecutionResult {
-  status: "completed" | "failed";
+  status: "completed" | "failed" | "waiting_for_approval";
   message: string;
   logs: string[];
+  approval?: Extract<ExecutableAction, { type: "approval_gate" }>;
 }
 
 export interface AdaptiveDesktopExecutor {
@@ -78,58 +79,102 @@ export function createAdaptiveDesktopExecutor(
       const logs: string[] = [];
       const startedAt = Date.now();
 
-      for (let iteration = 1; iteration <= task.maxIterations; iteration += 1) {
-        if (Date.now() - startedAt > task.timeoutMs) {
-          return {
-            status: "failed",
-            message: "The LLM-assisted desktop task timed out.",
-            logs
-          };
+      try {
+        for (let iteration = 1; iteration <= task.maxIterations; iteration += 1) {
+          if (Date.now() - startedAt > task.timeoutMs) {
+            return {
+              status: "failed",
+              message: "The LLM-assisted desktop task timed out.",
+              logs
+            };
+          }
+
+          const observation = await observeWithRequiredEvidence(driver);
+          logs.push(`Observation ${iteration}: ${observation.summary}`);
+          logs.push(`Accessibility ${iteration}: ${observation.accessibility}`);
+          const decision = await requestNextAction(task.goal, observation, "action", {
+            ...config,
+            apiKey: config.apiKey,
+            model: config.model
+          });
+
+          if (decision.decision === "complete") {
+            return {
+              status: "completed",
+              message: decision.reason || "The model judged the desktop task complete.",
+              logs
+            };
+          }
+
+          if (decision.decision === "fail") {
+            return {
+              status: "failed",
+              message: decision.reason || "The model could not complete the desktop task.",
+              logs
+            };
+          }
+
+          if (!decision.action) {
+            return {
+              status: "failed",
+              message: "The model requested an action without a valid action payload.",
+              logs
+            };
+          }
+
+          const action = validateAction(decision.action);
+          if (action.type === "launch_app" || action.type === "llm_desktop_task") {
+            return {
+              status: "failed",
+              message: "The adaptive loop can only use bounded desktop actions after planning.",
+              logs
+            };
+          }
+
+          if (action.type === "approval_gate") {
+            return {
+              status: "waiting_for_approval",
+              message: decision.reason || `Approval required before ${action.action}.`,
+              logs,
+              approval: action
+            };
+          }
+
+          const result = await executeAdaptiveAction(driver, action);
+          logs.push(result);
+          const verificationObservation = await observeWithRequiredEvidence(driver);
+          logs.push(`Verification observation ${iteration}: ${verificationObservation.summary}`);
+          logs.push(`Verification accessibility ${iteration}: ${verificationObservation.accessibility}`);
+          const verification = await requestNextAction(task.goal, verificationObservation, "verification", {
+            ...config,
+            apiKey: config.apiKey,
+            model: config.model
+          });
+
+          if (verification.decision === "complete") {
+            return {
+              status: "completed",
+              message: verification.reason || "The model verified the desktop task from fresh evidence.",
+              logs
+            };
+          }
+
+          if (verification.decision === "fail") {
+            return {
+              status: "failed",
+              message: verification.reason || "The model could not verify the desktop task from fresh evidence.",
+              logs
+            };
+          }
+
+          logs.push(`Verification requested retry: ${verification.reason}`);
         }
-
-        const observation = await driver.observeDesktop();
-        logs.push(`Observation ${iteration}: ${observation.summary}`);
-        const decision = await requestNextAction(task.goal, observation.summary, {
-          ...config,
-          apiKey: config.apiKey,
-          model: config.model
-        });
-
-        if (decision.decision === "complete") {
-          return {
-            status: "completed",
-            message: decision.reason || "The model judged the desktop task complete.",
-            logs
-          };
-        }
-
-        if (decision.decision === "fail") {
-          return {
-            status: "failed",
-            message: decision.reason || "The model could not complete the desktop task.",
-            logs
-          };
-        }
-
-        if (!decision.action) {
-          return {
-            status: "failed",
-            message: "The model requested an action without a valid action payload.",
-            logs
-          };
-        }
-
-        const action = validateAction(decision.action);
-        if (action.type === "launch_app" || action.type === "llm_desktop_task") {
-          return {
-            status: "failed",
-            message: "The adaptive loop can only use bounded desktop actions after planning.",
-            logs
-          };
-        }
-
-        const result = await executeAdaptiveAction(driver, action);
-        logs.push(result);
+      } catch (error) {
+        return {
+          status: "failed",
+          message: error instanceof Error ? error.message : "The adaptive desktop task failed.",
+          logs
+        };
       }
 
       return {
@@ -165,9 +210,23 @@ async function executeAdaptiveAction(
   }
 }
 
+async function observeWithRequiredEvidence(driver: DesktopDriver): Promise<Required<DesktopObservation>> {
+  const observation = await driver.observeDesktop();
+  if (!observation.screenshotDataUrl?.startsWith("data:image/png;base64,") || !observation.accessibility?.trim()) {
+    throw new Error("The adaptive desktop task needs screenshot and accessibility evidence before using the model.");
+  }
+
+  return {
+    summary: observation.summary,
+    screenshotDataUrl: observation.screenshotDataUrl,
+    accessibility: observation.accessibility.trim()
+  };
+}
+
 async function requestNextAction(
   goal: string,
-  observation: string,
+  observation: Required<DesktopObservation>,
+  phase: "action" | "verification",
   config: Required<Pick<AdaptiveDesktopExecutorConfig, "apiKey" | "model">> & AdaptiveDesktopExecutorConfig
 ): Promise<{ decision: "act" | "complete" | "fail"; reason: string; action?: unknown }> {
   const fetchImpl = config.fetchImpl ?? fetch;
@@ -189,11 +248,33 @@ async function requestNextAction(
           {
             role: "system",
             content:
-              "You are controlling a Windows desktop through a safe AutoM8 action API. Return exactly one decision. Use complete if the goal is done, fail if impossible from the observation, or act with one allowed action. Do not request shell commands."
+              "You are controlling a Windows desktop through a safe AutoM8 action API. Return exactly one decision. Use complete only when the fresh screenshot and accessibility evidence prove the goal is done, fail if impossible from the evidence, or act with one allowed action. Do not request shell commands."
           },
           {
             role: "user",
-            content: JSON.stringify({ goal, observation })
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  goal,
+                  phase,
+                  instruction:
+                    phase === "action"
+                      ? "Choose exactly one bounded desktop action from this evidence."
+                      : "Verify whether the goal is complete from this fresh evidence. Return act only if another retry is needed.",
+                  observation: {
+                    summary: observation.summary,
+                    accessibility: observation.accessibility
+                  }
+                })
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: observation.screenshotDataUrl
+                }
+              }
+            ]
           }
         ],
         provider: { require_parameters: true },

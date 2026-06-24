@@ -9,7 +9,7 @@ User goal:
 Let users create, inspect, edit, run, and monitor desktop-wide automations without manually scripting every step.
 
 Current status:
-Prototype phase. Initial target platform is Windows. The web prototype creates a draft automation from a natural-language prompt through a local OpenRouter-backed API, lets the user save the generated draft as an in-memory automation candidate, and runs concrete deterministic saved actions through a local Windows desktop driver. Runs are asynchronous, show step evidence, and pause for approval before external side effects. Bounded LLM desktop tasks exist as an action type, but robust screenshot/accessibility-driven perception and recovery are planned next.
+Prototype phase. Initial target platform is Windows. The web prototype creates a draft automation from a natural-language prompt through a local OpenRouter-backed API, lets the user save the generated draft as an in-memory automation candidate, and runs concrete deterministic saved actions through a local Windows desktop driver. Runs are asynchronous, show step evidence, and pause for approval before external side effects. Bounded LLM desktop tasks use screenshot/accessibility evidence, one model-selected action at a time, and fresh-evidence verification.
 
 ## Quick Start
 
@@ -39,6 +39,6 @@ Test: `npm run test`
 | `PRINCIPLE.md` | Coding/design principles with `Used` or concrete `Planned` status. |
 | `documentation/vertical-slices/automation-builder/` | Automation Builder module behavior and slice notes. |
 | `documentation/vertical-slices/automation-runner/` | Automation Runner module behavior and slice notes. |
-| `server/` | Local API, OpenRouter draft generation, in-memory saved automation storage, deterministic run planning, Windows desktop driver actions, approval gates, and bounded LLM task scaffolding. |
+| `server/` | Local API, OpenRouter draft generation, in-memory saved automation storage, deterministic run planning, Windows desktop driver actions, approval gates, and bounded LLM desktop tasks with screenshot/accessibility perception. |
 | `shared/` | Types shared by the frontend and backend. |
 | `src/` | React web prototype. |

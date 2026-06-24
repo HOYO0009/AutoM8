@@ -2,6 +2,8 @@ import { spawn } from "node:child_process";
 
 export interface DesktopObservation {
   summary: string;
+  screenshotDataUrl?: string;
+  accessibility?: string;
 }
 
 export interface DesktopWindow {
@@ -56,12 +58,13 @@ $windows | ConvertTo-Json -Compress
 
     async observeDesktop() {
       const windows = await this.listWindows();
+      const [screenshotDataUrl, accessibility] = await Promise.all([capturePrimaryScreen(), readRootAccessibilityTree()]);
       const summary =
         windows.length > 0
           ? windows.map((window) => `${window.processName}: ${window.title}`).join("\n")
           : "No targetable desktop windows were found.";
 
-      return { summary };
+      return { summary, screenshotDataUrl, accessibility };
     },
 
     async captureWindow(criteria) {
@@ -70,7 +73,9 @@ $windows | ConvertTo-Json -Compress
       return {
         summary: target
           ? `Window capture boundary for ${target}.\n${observation.summary}`
-          : `Window capture boundary.\n${observation.summary}`
+          : `Window capture boundary.\n${observation.summary}`,
+        screenshotDataUrl: observation.screenshotDataUrl,
+        accessibility: observation.accessibility
       };
     },
 
@@ -80,7 +85,9 @@ $windows | ConvertTo-Json -Compress
       return {
         summary: target
           ? `Accessibility boundary for ${target}.\n${observation.summary}`
-          : `Accessibility boundary.\n${observation.summary}`
+          : `Accessibility boundary.\n${observation.summary}`,
+        screenshotDataUrl: observation.screenshotDataUrl,
+        accessibility: observation.accessibility
       };
     },
 
@@ -269,6 +276,59 @@ function runPowerShellWithJson(script: string, payload: unknown): Promise<string
     });
     child.stdin.end(JSON.stringify(payload));
   });
+}
+
+async function capturePrimaryScreen(): Promise<string> {
+  const output = await runPowerShell(`
+Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName System.Windows.Forms
+$bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+$bitmap = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
+$graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+$stream = New-Object System.IO.MemoryStream
+try {
+  $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
+  $bitmap.Save($stream, [System.Drawing.Imaging.ImageFormat]::Png)
+  "data:image/png;base64,$([Convert]::ToBase64String($stream.ToArray()))"
+} finally {
+  $stream.Dispose()
+  $graphics.Dispose()
+  $bitmap.Dispose()
+}
+`);
+
+  return output.trim();
+}
+
+async function readRootAccessibilityTree(): Promise<string> {
+  return runPowerShell(`
+Add-Type -AssemblyName UIAutomationClient
+$root = [System.Windows.Automation.AutomationElement]::RootElement
+$condition = [System.Windows.Automation.Condition]::TrueCondition
+$items = $root.FindAll([System.Windows.Automation.TreeScope]::Children, $condition)
+$lines = New-Object System.Collections.Generic.List[string]
+$limit = 80
+foreach ($item in $items) {
+  if ($lines.Count -ge $limit) { break }
+  $name = $item.Current.Name
+  $type = $item.Current.ControlType.ProgrammaticName -replace '^ControlType\\.', ''
+  $enabled = $item.Current.IsEnabled
+  if ($name -or $type) {
+    $lines.Add("$type: $name enabled=$enabled")
+  }
+  $children = $item.FindAll([System.Windows.Automation.TreeScope]::Children, $condition)
+  foreach ($child in $children) {
+    if ($lines.Count -ge $limit) { break }
+    $childName = $child.Current.Name
+    $childType = $child.Current.ControlType.ProgrammaticName -replace '^ControlType\\.', ''
+    $childEnabled = $child.Current.IsEnabled
+    if ($childName -or $childType) {
+      $lines.Add("  $childType: $childName enabled=$childEnabled")
+    }
+  }
+}
+$lines -join [Environment]::NewLine
+`);
 }
 
 function assertSafeAppIdentifier(app: string): void {

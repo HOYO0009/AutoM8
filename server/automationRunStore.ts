@@ -115,6 +115,38 @@ export function createAutomationRunManager(config: AutomationRunManagerConfig) {
             return;
           }
 
+          if (action.type === "llm_desktop_task") {
+            const result = await config.adaptiveExecutor.runTask(action);
+            for (const log of result.logs) {
+              addStepLog(step, log);
+            }
+
+            if (result.status === "failed") {
+              throw new RunAutomationError("ADAPTIVE_STEP_FAILED", result.message, 422);
+            }
+
+            if (result.status === "waiting_for_approval") {
+              if (!result.approval) {
+                throw new RunAutomationError(
+                  "ADAPTIVE_APPROVAL_MISSING",
+                  "The adaptive desktop task paused without approval details.",
+                  422
+                );
+              }
+
+              const approval = createApproval(run, stepIndex, step.title, result.approval);
+              run.status = "waiting_for_approval";
+              step.status = "waiting_for_approval";
+              step.message = "Waiting for approval before a side-effect action.";
+              addStepLog(step, result.message);
+              addStepLog(step, `Approval required before ${approval.action}.`);
+              return;
+            }
+
+            addStepLog(step, result.message);
+            continue;
+          }
+
           const message = await executeAction(action);
           addStepLog(step, message);
         }
@@ -160,14 +192,8 @@ export function createAutomationRunManager(config: AutomationRunManagerConfig) {
         return config.driver.wait(action.ms);
       case "verify_text":
         return config.driver.verifyText(action.text);
-      case "llm_desktop_task": {
-        const result = await config.adaptiveExecutor.runTask(action);
-        if (result.status === "failed") {
-          throw new RunAutomationError("ADAPTIVE_STEP_FAILED", result.message, 422);
-        }
-
-        return result.logs.length ? `${result.message} ${result.logs.join(" ")}` : result.message;
-      }
+      case "llm_desktop_task":
+        throw new RunAutomationError("ADAPTIVE_STEP_UNHANDLED", "The adaptive desktop task was not handled.", 500);
       case "approval_gate":
         return `Approval gate passed for ${action.action}.`;
     }

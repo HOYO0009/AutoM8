@@ -1,6 +1,6 @@
 # Run Non-Deterministic Desktop Task
 
-Status: Planned
+Status: Done
 
 End-to-end behavior:
 - Given a saved automation step requires ambiguous desktop perception or UI navigation
