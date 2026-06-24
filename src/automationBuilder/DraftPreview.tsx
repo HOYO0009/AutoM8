@@ -1,6 +1,7 @@
 import { AlertCircle, CheckCircle2, LoaderCircle, Save } from "lucide-react";
 
 import { DraftAutomation } from "../../shared/draftAutomation";
+import { NodeGraphViewer } from "../nodeGraphViewer/NodeGraphViewer";
 
 export function DraftPreview({
   draft,
@@ -47,20 +48,7 @@ export function DraftPreview({
         ) : null}
       </header>
 
-      <ol className="step-list">
-        {draft.steps.map((step, index) => (
-          <li key={`${step.title}-${index}`} className="step-item">
-            <div className="step-index">{index + 1}</div>
-            <div>
-              <div className="step-title-row">
-                <h3>{step.title}</h3>
-                <span>{step.nodeType}</span>
-              </div>
-              <p>{step.description}</p>
-            </div>
-          </li>
-        ))}
-      </ol>
+      <NodeGraphViewer automation={draft} />
     </article>
   );
 }

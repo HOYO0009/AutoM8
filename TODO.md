@@ -3,7 +3,6 @@
 ## Next Vertical Slices
 
 - [ ] Automation Builder: record desktop actions to create an automation.
-- [ ] Node Graph Viewer: inspect automation steps, node types, inputs, outputs, fallbacks, and verification logic.
 - [ ] Editing: modify automations through prompting, manual graph edits, or re-recording specific nodes.
 - [ ] Run History: view previous runs, failures, screenshots, logs, token usage, and repair attempts.
 - [ ] Insights: identify flaky nodes, expensive LLM calls, common failure reasons, and optimization opportunities.
@@ -25,3 +24,4 @@
 - [x] Automation Runner / Run deterministic saved automation: execute concrete saved actions through the Windows desktop driver and show step evidence.
 - [x] Automation Runner / Approval-gated run actions: pause side-effect actions for approval and resume or fail from the user's decision.
 - [x] Automation Runner / Run non-deterministic desktop task with screenshot/accessibility perception.
+- [x] Node Graph Viewer / Inspect automation graph: inspect draft and saved automation nodes with current metadata and latest-run context.

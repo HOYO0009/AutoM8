@@ -1,6 +1,7 @@
 import { AlertCircle, LoaderCircle, Play } from "lucide-react";
 
 import { AutomationRun, SavedAutomationCandidate } from "../../shared/draftAutomation";
+import { NodeGraphViewer } from "../nodeGraphViewer/NodeGraphViewer";
 import { AutomationRunResult } from "./AutomationRunResult";
 
 export function SavedAutomationCandidateList({
@@ -62,6 +63,7 @@ export function SavedAutomationCandidateList({
                   <span>{runError}</span>
                 </div>
               ) : null}
+              <NodeGraphViewer automation={automation} latestRun={latestRun} />
               {latestRun ? <AutomationRunResult run={latestRun} onApproval={onApproval} /> : null}
             </li>
           );

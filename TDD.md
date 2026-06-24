@@ -14,7 +14,7 @@ Track test strategy, coverage confidence, and test pyramid balance across vertic
 
 | Level | Intended use | Current balance | Notes |
 |---|---|---|---|
-| Unit | Pure logic and edge cases | Used | Current coverage focuses on backend module logic and validation. |
+| Unit | Pure logic and edge cases | Used | Current coverage focuses on backend module logic, shared validation/projection, and small React render checks. |
 | Integration | Public interfaces and real code paths | Preferred default | Use for vertical slices when behavior crosses module boundaries. |
 | Contract/API | External or internal service boundaries | Limited | Structured LLM boundary behavior is covered with mocked provider responses. |
 | E2E | Critical user journeys only | Unknown | No dedicated browser or desktop E2E suite is currently documented. |
@@ -27,6 +27,7 @@ Track test strategy, coverage confidence, and test pyramid balance across vertic
 | Automation Builder draft generation | `documentation/vertical-slices/automation-builder/prompt-to-draft-automation.md` | Unit / contract boundary | `server/automation-builder/draftGenerator.test.ts` | Mocked structured-output provider response | Add broader UI/API integration coverage when builder flows stabilize. |
 | Shared draft validation | Automation Builder / shared boundary | Unit | `shared/draftValidation.test.ts` | None | Add API integration coverage if draft validation starts accepting persisted or imported automation data. |
 | Automation Builder saved candidates | `documentation/vertical-slices/automation-builder/save-draft-automation.md` | Unit | `server/automation-builder/savedAutomationCandidateStore.test.ts` | None documented | Add persistence coverage if saved candidates move beyond in-memory storage. |
+| Node Graph Viewer graph inspection | `documentation/vertical-slices/node-graph-viewer/inspect-automation-graph.md` | Unit / component render | `shared/automationGraph.test.ts`, `src/nodeGraphViewer/NodeGraphViewer.test.tsx` | None | Add browser interaction coverage if the viewer becomes editable or interactive. |
 | Automation Runner deterministic action planning | `documentation/vertical-slices/automation-runner/run-saved-automation.md` | Unit / contract boundary | `server/automation-runner/executableActionPlanner.test.ts` | Mocked structured-output provider response | Add runner API integration coverage around saved candidate execution. |
 | Automation Runner executable action registry | `documentation/vertical-slices/automation-runner/run-saved-automation.md` | Unit | `server/automation-runner/executableActionRegistry.test.ts` | None | Add coverage when new action types are added to ensure schemas, validation, and runner execution stay aligned. |
 | Automation Runner run state and approvals | `documentation/vertical-slices/automation-runner/approval-gated-run-actions.md` | Unit | `server/automation-runner/automationRunStore.test.ts`, `server/automation-runner/executableActionPlanner.test.ts` | None documented | Add cross-slice tests for approve/deny flows through the API when the surface stabilizes. |
