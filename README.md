@@ -9,7 +9,7 @@ User goal:
 Let users create, inspect, edit, run, and monitor desktop-wide automations without manually scripting every step.
 
 Current status:
-Prototype phase. Initial target platform is Windows. The web prototype creates a draft automation from a natural-language prompt through a local OpenRouter-backed API, lets the user save the generated draft as an in-memory automation candidate, and starts a real hybrid runner for saved candidates. The runner executes validated deterministic actions through a local Windows desktop driver, uses bounded LLM-assisted desktop tasks for ambiguous steps, records live step evidence, and pauses for approval before external side effects.
+Prototype phase. Initial target platform is Windows. The web prototype creates a draft automation from a natural-language prompt through a local OpenRouter-backed API, lets the user save the generated draft as an in-memory automation candidate, and runs concrete deterministic saved actions through a local Windows desktop driver. Runs are asynchronous, show step evidence, and pause for approval before external side effects. Bounded LLM desktop tasks exist as an action type, but robust screenshot/accessibility-driven perception and recovery are planned next.
 
 ## Quick Start
 
@@ -38,7 +38,7 @@ Test: `npm run test`
 | `PATTERN.md` | GoF-style design patterns with `Used` or concrete `Planned` status. |
 | `PRINCIPLE.md` | Coding/design principles with `Used` or concrete `Planned` status. |
 | `documentation/vertical-slices/automation-builder/` | Automation Builder module behavior and slice notes. |
-| `documentation/vertical-slices/automation-runner/` | Automation Runner slice notes. |
-| `server/` | Local API, OpenRouter draft generation, in-memory saved automation storage, planning, Windows desktop driver actions, and hybrid automation runs. |
+| `documentation/vertical-slices/automation-runner/` | Automation Runner module behavior and slice notes. |
+| `server/` | Local API, OpenRouter draft generation, in-memory saved automation storage, deterministic run planning, Windows desktop driver actions, approval gates, and bounded LLM task scaffolding. |
 | `shared/` | Types shared by the frontend and backend. |
 | `src/` | React web prototype. |

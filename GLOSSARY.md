@@ -20,7 +20,7 @@
 | Term | Meaning | Owner/Context |
 |---|---|---|
 | Automation run | A recorded attempt to run a saved automation, including timestamps, overall status, and per-step results. | Runner |
-| Hybrid runner | The Windows-first runner that executes deterministic actions directly, uses bounded LLM-assisted desktop control for ambiguous work, and records step evidence. | Runner |
+| Hybrid runner | The Windows-first runner that executes deterministic actions directly, pauses side effects for approval, and exposes a bounded LLM desktop task action type. Robust screenshot/accessibility perception is planned. | Runner |
 | Approval gate | A run pause that requires the user to approve a side-effect action before AutoM8 continues. | Runner, safety |
 
 ## Runtime
@@ -34,6 +34,7 @@
 | Verification node | A node that checks whether an action succeeded or confirms expected state, output files, or before/after values. | Runtime |
 | Human approval gate | A pause in an automation that asks the user to approve an important action before continuing. | Runtime, safety |
 | Executable action | A validated runner command such as launching an app, focusing a window, opening a URL, typing text, pressing a hotkey, clicking, waiting, verifying text, requesting approval, or entering a bounded LLM desktop task. | Runtime |
+| Non-deterministic desktop task | A planned runner behavior where ambiguous UI work is driven by real screenshot/accessibility evidence, bounded model-selected actions, and after-action verification. | Runtime |
 
 ## Monitoring and Insights
 
