@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createAdaptiveDesktopExecutor } from "./adaptiveDesktopExecutor.js";
-import { DesktopDriver } from "./desktopDriver.js";
+import { DesktopDriver } from "../desktop/desktopDriver.js";
 
 const screenshotDataUrl = "data:image/png;base64,iVBORw0KGgo=";
 

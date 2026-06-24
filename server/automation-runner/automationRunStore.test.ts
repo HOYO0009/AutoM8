@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ExecutableAutomationPlan, SavedAutomation } from "../shared/draftAutomation.js";
+import { ExecutableAutomationPlan, SavedAutomation } from "../../shared/draftAutomation.js";
 import { AdaptiveDesktopExecutor } from "./adaptiveDesktopExecutor.js";
-import { DesktopDriver } from "./desktopDriver.js";
+import { DesktopDriver } from "../desktop/desktopDriver.js";
 import { createAutomationRunManager, RunAutomationError } from "./automationRunStore.js";
 import { ExecutionPlanner } from "./executionPlanner.js";
 

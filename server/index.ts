@@ -4,12 +4,12 @@ import express from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { createAdaptiveDesktopExecutor } from "./adaptiveDesktopExecutor.js";
-import { createAutomationRunManager, RunAutomationError } from "./automationRunStore.js";
-import { createWindowsDesktopDriver } from "./desktopDriver.js";
-import { createDraftAutomation, DraftGenerationError } from "./draftGenerator.js";
-import { createExecutionPlanner, ExecutionPlanningError } from "./executionPlanner.js";
-import { createSavedAutomationStore, SaveAutomationError } from "./savedAutomationStore.js";
+import { createDraftAutomation, DraftGenerationError } from "./automation-builder/draftGenerator.js";
+import { createSavedAutomationStore, SaveAutomationError } from "./automation-builder/savedAutomationStore.js";
+import { createAdaptiveDesktopExecutor } from "./automation-runner/adaptiveDesktopExecutor.js";
+import { createAutomationRunManager, RunAutomationError } from "./automation-runner/automationRunStore.js";
+import { createExecutionPlanner, ExecutionPlanningError } from "./automation-runner/executionPlanner.js";
+import { createWindowsDesktopDriver } from "./desktop/desktopDriver.js";
 
 const app = express();
 const port = Number(process.env.PORT ?? 8787);

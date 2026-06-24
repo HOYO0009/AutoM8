@@ -5,8 +5,8 @@ import {
   ExecutableAutomationPlan,
   ExecutableAutomationStep,
   SavedAutomation
-} from "../shared/draftAutomation.js";
-import { requestOpenRouterStructuredOutput } from "./openRouterStructuredOutput.js";
+} from "../../shared/draftAutomation.js";
+import { requestOpenRouterStructuredOutput } from "../llm/openRouterStructuredOutput.js";
 
 const PLAN_REQUEST_TIMEOUT_MS = 30_000;
 const EXECUTION_PLAN_SCHEMA = {

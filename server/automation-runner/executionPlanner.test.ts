@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { SavedAutomation } from "../shared/draftAutomation.js";
+import { SavedAutomation } from "../../shared/draftAutomation.js";
 import { actionRequiresApproval, createExecutionPlanner, createHeuristicPlan, validateAction, validateExecutablePlan } from "./executionPlanner.js";
 
 describe("createHeuristicPlan", () => {

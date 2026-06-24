@@ -39,6 +39,10 @@ Test: `npm run test`
 | `PRINCIPLE.md` | Coding/design principles with `Used` or concrete `Planned` status. |
 | `documentation/vertical-slices/automation-builder/` | Automation Builder module behavior and slice notes. |
 | `documentation/vertical-slices/automation-runner/` | Automation Runner module behavior and slice notes. |
-| `server/` | Local API, OpenRouter draft generation, in-memory saved automation storage, deterministic run planning, Windows desktop driver actions, approval gates, and bounded LLM desktop tasks with screenshot/accessibility perception. |
+| `server/` | Local API composition entrypoint and backend modules. |
+| `server/automation-builder/` | OpenRouter draft generation and in-memory saved automation storage. |
+| `server/automation-runner/` | Deterministic run planning, run state, approval gates, and bounded LLM desktop tasks with screenshot/accessibility perception. |
+| `server/desktop/` | Windows desktop driver actions. |
+| `server/llm/` | Shared OpenRouter structured-output request plumbing. |
 | `shared/` | Types shared by the frontend and backend. |
 | `src/` | React web prototype. |

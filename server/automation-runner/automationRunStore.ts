@@ -8,9 +8,9 @@ import {
   ExecutableAction,
   ExecutableAutomationPlan,
   SavedAutomation
-} from "../shared/draftAutomation.js";
+} from "../../shared/draftAutomation.js";
 import { AdaptiveDesktopExecutor } from "./adaptiveDesktopExecutor.js";
-import { DesktopDriver } from "./desktopDriver.js";
+import { DesktopDriver } from "../desktop/desktopDriver.js";
 import { actionRequiresApproval, ExecutionPlanner } from "./executionPlanner.js";
 
 export class RunAutomationError extends Error {

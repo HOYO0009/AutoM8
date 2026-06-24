@@ -1,7 +1,7 @@
-import { ExecutableAction } from "../shared/draftAutomation.js";
-import { DesktopDriver, DesktopObservation } from "./desktopDriver.js";
+import { ExecutableAction } from "../../shared/draftAutomation.js";
+import { DesktopDriver, DesktopObservation } from "../desktop/desktopDriver.js";
 import { validateAction } from "./executionPlanner.js";
-import { requestOpenRouterStructuredOutput } from "./openRouterStructuredOutput.js";
+import { requestOpenRouterStructuredOutput } from "../llm/openRouterStructuredOutput.js";
 
 const ADAPTIVE_REQUEST_TIMEOUT_MS = 30_000;
 const ADAPTIVE_ACTION_SCHEMA = {

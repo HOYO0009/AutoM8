@@ -1,5 +1,5 @@
-import { DraftAutomation, nodeTypes } from "../shared/draftAutomation.js";
-import { requestOpenRouterStructuredOutput } from "./openRouterStructuredOutput.js";
+import { DraftAutomation, nodeTypes } from "../../shared/draftAutomation.js";
+import { requestOpenRouterStructuredOutput } from "../llm/openRouterStructuredOutput.js";
 
 const LLM_REQUEST_TIMEOUT_MS = 30_000;
 const INVALID_LLM_RESPONSE_MESSAGE =
