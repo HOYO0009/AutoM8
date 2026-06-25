@@ -9,10 +9,12 @@ import {
 } from "../../shared/draftAutomation";
 import {
   ApiClientError,
+  createSavedAutomationEditDraft,
   createDraftAutomationCreationResult,
   decideAutomationApproval,
   fetchAutomationRuns,
   fetchSavedAutomationCandidates,
+  replaceSavedAutomation,
   runSavedAutomation,
   saveDraftAutomation
 } from "../api/autom8Api";
@@ -28,11 +30,20 @@ export function useAutomationWorkspace() {
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedNotice, setSavedNotice] = useState<string | null>(null);
+  const [editPrompt, setEditPrompt] = useState("");
+  const [editDraft, setEditDraft] = useState<DraftAutomation | null>(null);
+  const [editClarificationQuestions, setEditClarificationQuestions] = useState<ClarificationQuestion[]>([]);
+  const [editClarificationAnswerText, setEditClarificationAnswerText] = useState<Record<string, string>>({});
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editSaveError, setEditSaveError] = useState<string | null>(null);
+  const [editSavedNotice, setEditSavedNotice] = useState<string | null>(null);
   const [savedAutomationCandidates, setSavedAutomationCandidates] = useState<SavedAutomationCandidate[]>([]);
   const [automationRuns, setAutomationRuns] = useState<AutomationRun[]>([]);
   const [runErrors, setRunErrors] = useState<Record<string, string>>({});
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isGeneratingEdit, setIsGeneratingEdit] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [runningAutomationId, setRunningAutomationId] = useState<string | null>(null);
 
   const hasActiveRun = automationRuns.some((run) =>
@@ -40,6 +51,8 @@ export function useAutomationWorkspace() {
   );
   const trimmedPrompt = prompt.trim();
   const canGenerate = trimmedPrompt.length > 0 && !isGenerating;
+  const trimmedEditPrompt = editPrompt.trim();
+  const canGenerateEdit = trimmedEditPrompt.length > 0 && !isGeneratingEdit;
   const clarificationAnswers = useMemo<ClarificationAnswer[]>(() => {
     return clarificationQuestions
       .map((question) => ({
@@ -52,9 +65,24 @@ export function useAutomationWorkspace() {
     clarificationQuestions.length > 0 &&
     clarificationQuestions.every((question) => Boolean(clarificationAnswerText[question.id]?.trim())) &&
     !isGenerating;
+  const editClarificationAnswers = useMemo<ClarificationAnswer[]>(() => {
+    return editClarificationQuestions
+      .map((question) => ({
+        questionId: question.id,
+        answer: editClarificationAnswerText[question.id]?.trim() ?? ""
+      }))
+      .filter((answer) => answer.answer.length > 0);
+  }, [editClarificationAnswerText, editClarificationQuestions]);
+  const canSubmitEditClarifications =
+    editClarificationQuestions.length > 0 &&
+    editClarificationQuestions.every((question) => Boolean(editClarificationAnswerText[question.id]?.trim())) &&
+    !isGeneratingEdit;
   const promptWordCount = useMemo(() => {
     return trimmedPrompt ? trimmedPrompt.split(/\s+/).length : 0;
   }, [trimmedPrompt]);
+  const editPromptWordCount = useMemo(() => {
+    return trimmedEditPrompt ? trimmedEditPrompt.split(/\s+/).length : 0;
+  }, [trimmedEditPrompt]);
   const latestRunByAutomationId = useMemo(() => {
     const latestRuns: Record<string, AutomationRun> = {};
 
@@ -121,6 +149,28 @@ export function useAutomationWorkspace() {
     setSavedNotice(null);
   }
 
+  function updateEditPrompt(nextPrompt: string) {
+    setEditPrompt(nextPrompt);
+    setEditDraft(null);
+    setEditClarificationQuestions([]);
+    setEditClarificationAnswerText({});
+    setEditError(null);
+    setEditSaveError(null);
+    setEditSavedNotice(null);
+  }
+
+  function resetEditWorkspace() {
+    setEditPrompt("");
+    setEditDraft(null);
+    setEditClarificationQuestions([]);
+    setEditClarificationAnswerText({});
+    setEditError(null);
+    setEditSaveError(null);
+    setEditSavedNotice(null);
+    setIsGeneratingEdit(false);
+    setIsSavingEdit(false);
+  }
+
   async function generateDraft() {
     if (!canGenerate) {
       return;
@@ -137,8 +187,31 @@ export function useAutomationWorkspace() {
     await createDraftAutomationFromPrompt(clarificationAnswers);
   }
 
+  async function generateEditDraft(automationId: string) {
+    if (!canGenerateEdit) {
+      return;
+    }
+
+    await createEditDraftFromPrompt(automationId, []);
+  }
+
+  async function submitEditClarificationAnswers(automationId: string) {
+    if (!canSubmitEditClarifications) {
+      return;
+    }
+
+    await createEditDraftFromPrompt(automationId, editClarificationAnswers);
+  }
+
   function updateClarificationAnswer(questionId: string, answer: string) {
     setClarificationAnswerText((currentAnswers) => ({
+      ...currentAnswers,
+      [questionId]: answer
+    }));
+  }
+
+  function updateEditClarificationAnswer(questionId: string, answer: string) {
+    setEditClarificationAnswerText((currentAnswers) => ({
       ...currentAnswers,
       [questionId]: answer
     }));
@@ -181,6 +254,43 @@ export function useAutomationWorkspace() {
     }
   }
 
+  async function createEditDraftFromPrompt(automationId: string, answers: ClarificationAnswer[]) {
+    setIsGeneratingEdit(true);
+    setEditError(null);
+    setEditSaveError(null);
+    setEditSavedNotice(null);
+
+    try {
+      const creationResult = await createSavedAutomationEditDraft(automationId, trimmedEditPrompt, answers);
+
+      if (creationResult.status === "needs_clarification") {
+        setEditDraft(null);
+        setEditClarificationQuestions(creationResult.questions);
+        setEditClarificationAnswerText((currentAnswers) => {
+          const nextAnswers: Record<string, string> = {};
+          for (const question of creationResult.questions) {
+            nextAnswers[question.id] = currentAnswers[question.id] ?? "";
+          }
+          return nextAnswers;
+        });
+        return;
+      }
+
+      setEditDraft(creationResult.draft);
+      setEditClarificationQuestions([]);
+      setEditClarificationAnswerText({});
+    } catch (generationError) {
+      setEditDraft(null);
+      setEditError(
+        generationError instanceof ApiClientError
+          ? generationError.message
+          : "AutoM8 could not reach the local saved automation edit API."
+      );
+    } finally {
+      setIsGeneratingEdit(false);
+    }
+  }
+
   async function saveDraft() {
     if (!draft || isSaving) {
       return null;
@@ -204,6 +314,33 @@ export function useAutomationWorkspace() {
       return null;
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function saveEditedAutomation(automationId: string) {
+    if (!editDraft || isSavingEdit) {
+      return null;
+    }
+
+    setIsSavingEdit(true);
+    setEditSaveError(null);
+    setEditSavedNotice(null);
+
+    try {
+      const payload = await replaceSavedAutomation(automationId, editDraft);
+      setSavedAutomationCandidates(payload.savedAutomationCandidates);
+      setAutomationRuns((currentRuns) => currentRuns.filter((run) => run.automationId !== automationId));
+      setEditSavedNotice(`Saved changes to "${payload.savedAutomationCandidate.name}".`);
+      return payload.savedAutomationCandidate;
+    } catch (saveDraftError) {
+      setEditSaveError(
+        saveDraftError instanceof ApiClientError
+          ? saveDraftError.message
+          : "AutoM8 could not reach the local saved automation API."
+      );
+      return null;
+    } finally {
+      setIsSavingEdit(false);
     }
   }
 
@@ -250,19 +387,37 @@ export function useAutomationWorkspace() {
     error,
     saveError,
     savedNotice,
+    editPrompt,
+    setEditPrompt: updateEditPrompt,
+    editDraft,
+    editClarificationQuestions,
+    editClarificationAnswerText,
+    editError,
+    editSaveError,
+    editSavedNotice,
     savedAutomationCandidates,
     latestRunByAutomationId,
     runErrors,
     isGenerating,
     isSaving,
+    isGeneratingEdit,
+    isSavingEdit,
     runningAutomationId,
     canGenerate,
     canSubmitClarifications,
     promptWordCount,
+    canGenerateEdit,
+    canSubmitEditClarifications,
+    editPromptWordCount,
     generateDraft,
     submitClarificationAnswers,
+    generateEditDraft,
+    submitEditClarificationAnswers,
     updateClarificationAnswer,
+    updateEditClarificationAnswer,
     saveDraft,
+    saveEditedAutomation,
+    resetEditWorkspace,
     runAutomation,
     decideApproval
   };

@@ -8,20 +8,24 @@ export function DraftPreview({
   isSaving,
   onSave,
   saveError,
-  savedNotice
+  savedNotice,
+  eyebrow = "Draft automation",
+  saveLabel = "Save draft"
 }: {
   draft: DraftAutomation;
   isSaving: boolean;
   onSave: () => void;
   saveError: string | null;
   savedNotice: string | null;
+  eyebrow?: string;
+  saveLabel?: string;
 }) {
   return (
     <article className="draft-preview">
       <header className="draft-header">
         <div className="draft-title-row">
           <div>
-            <p className="eyebrow">Draft automation</p>
+            <p className="eyebrow">{eyebrow}</p>
             <h2>{draft.name}</h2>
           </div>
           <button className="save-draft-button" type="button" onClick={onSave} disabled={isSaving}>
@@ -30,7 +34,7 @@ export function DraftPreview({
             ) : (
               <Save aria-hidden="true" size={18} />
             )}
-            Save draft
+            {saveLabel}
           </button>
         </div>
         <p>{draft.summary}</p>

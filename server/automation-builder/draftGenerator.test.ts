@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { SavedAutomationCandidate } from "../../shared/draftAutomation.js";
 import { createDraftAutomationCreationResult } from "./draftGenerator.js";
 
 describe("createDraftAutomationCreationResult", () => {
@@ -178,6 +179,90 @@ describe("createDraftAutomationCreationResult", () => {
       "Email draft contains the revenue value and remains unsent"
     ]);
     expect(JSON.parse(requestBodyFor(fetchImpl).messages[1].content).clarificationAnswers).toEqual(clarificationAnswers);
+  });
+
+  it("includes saved automation context when creating an edited Draft Automation", async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      jsonResponse({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                status: "draft_created",
+                draft: {
+                  name: "Daily Sales Summary with Slack",
+                  summary: "Collect yesterday's revenue, draft a team email, and post a Slack summary.",
+                  steps: [
+                    {
+                      title: "Open sales spreadsheet",
+                      nodeType: "deterministic",
+                      description: "Open the workbook that contains daily sales data.",
+                      details: {
+                        inputs: ["C:/Reports/Sales.xlsx"],
+                        outputs: ["Sales workbook is open"],
+                        fallbacks: ["Ask the user to choose the sales workbook if the file is unavailable"],
+                        verification: ["Workbook title shows Sales.xlsx"]
+                      }
+                    },
+                    {
+                      title: "Post Slack summary",
+                      nodeType: "llm",
+                      description: "Draft a short Slack update for the revenue channel.",
+                      details: {
+                        inputs: ["Slack channel: #revenue", "Yesterday's total revenue value"],
+                        outputs: ["Unsent Slack message draft"],
+                        fallbacks: ["Ask for the Slack channel if it is unavailable"],
+                        verification: ["Slack draft contains the revenue value and remains unsent"]
+                      }
+                    }
+                  ]
+                },
+                questions: []
+              })
+            }
+          }
+        ]
+      })
+    );
+    const savedAutomationContext: SavedAutomationCandidate = {
+      id: "saved-1",
+      createdAt: "2026-06-24T12:00:00.000Z",
+      name: "Daily Sales Summary",
+      summary: "Collect yesterday's revenue and draft a team email.",
+      steps: [
+        {
+          title: "Open sales spreadsheet",
+          nodeType: "deterministic",
+          description: "Open the workbook that contains daily sales data.",
+          details: {
+            inputs: ["C:/Reports/Sales.xlsx"],
+            outputs: ["Sales workbook is open"],
+            fallbacks: ["Ask the user to choose the sales workbook if the file is unavailable"],
+            verification: ["Workbook title shows Sales.xlsx"]
+          }
+        }
+      ]
+    };
+
+    const creationResult = await createDraftAutomationCreationResult(
+      "Also post the summary to #revenue in Slack.",
+      [],
+      {
+        apiKey: "test-key",
+        model: "test-model",
+        fetchImpl
+      },
+      { savedAutomationContext }
+    );
+
+    expect(creationResult.status).toBe("draft_created");
+    const requestBody = requestBodyFor(fetchImpl);
+    expect(requestBody.messages[0].content).toContain("complete updated Draft Automation");
+    expect(JSON.parse(requestBody.messages[1].content).savedAutomationContext).toEqual({
+      name: "Daily Sales Summary",
+      summary: "Collect yesterday's revenue and draft a team email.",
+      steps: savedAutomationContext.steps
+    });
   });
 
   it("surfaces provider rejection messages", async () => {

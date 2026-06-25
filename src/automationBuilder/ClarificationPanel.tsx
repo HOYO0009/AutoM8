@@ -9,7 +9,9 @@ export function ClarificationPanel({
   isGenerating,
   canSubmit,
   onAnswerChange,
-  onSubmit
+  onSubmit,
+  description = "AutoM8 needs these facts before it can create a Draft Automation.",
+  submitLabel = "Create draft"
 }: {
   questions: ClarificationQuestion[];
   answerText: Record<string, string>;
@@ -17,6 +19,8 @@ export function ClarificationPanel({
   canSubmit: boolean;
   onAnswerChange: (questionId: string, answer: string) => void;
   onSubmit: () => void;
+  description?: string;
+  submitLabel?: string;
 }) {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -28,7 +32,7 @@ export function ClarificationPanel({
       <header>
         <p className="eyebrow">Clarification required</p>
         <h2>Answer the missing execution details</h2>
-        <p>AutoM8 needs these facts before it can create a Draft Automation.</p>
+        <p>{description}</p>
       </header>
 
       <form className="clarification-form" onSubmit={handleSubmit}>
@@ -51,7 +55,7 @@ export function ClarificationPanel({
           ) : (
             <Sparkles aria-hidden="true" size={18} />
           )}
-          Create draft
+          {submitLabel}
         </button>
       </form>
     </article>

@@ -267,6 +267,39 @@ describe("createAutomationRunManager", () => {
     expect(() => runManager.start(undefined)).toThrow(RunAutomationError);
     expect(() => runManager.start(undefined)).toThrow("Choose a saved automation before running it.");
   });
+
+  it("reports active automation runs and clears stale run context after they finish", async () => {
+    const automation = savedAutomationCandidate();
+    const runManager = createAutomationRunManager({
+      idFactory: sequentialIds("run-1"),
+      now: () => new Date("2026-06-24T12:00:00.000Z"),
+      actionPlanner: plannerFor({
+        automationId: "saved-1",
+        steps: [
+          {
+            title: "Open Notepad",
+            nodeType: "deterministic",
+            description: "Open Notepad.",
+            actions: [{ type: "launch_app", app: "notepad" }]
+          }
+        ]
+      }),
+      driver: mockDriver(),
+      nonDeterministicTaskRunner: mockNonDeterministicTaskRunner()
+    });
+
+    const run = runManager.start(automation);
+    expect(runManager.hasActiveRunForAutomation("saved-1")).toBe(true);
+
+    await runManager.whenIdle(run.id);
+
+    expect(runManager.hasActiveRunForAutomation("saved-1")).toBe(false);
+    expect(runManager.list()).toHaveLength(1);
+
+    runManager.clearRunsForAutomation("saved-1");
+
+    expect(runManager.list()).toEqual([]);
+  });
 });
 
 function savedAutomationCandidate(overrides: Partial<SavedAutomationCandidate> = {}): SavedAutomationCandidate {

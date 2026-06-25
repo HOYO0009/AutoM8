@@ -44,6 +44,27 @@ export function createSavedAutomationCandidateStore(config: SavedAutomationCandi
 
       savedAutomationCandidates.unshift(savedAutomationCandidate);
       return cloneSavedAutomationCandidate(savedAutomationCandidate);
+    },
+
+    replace(id: string, draft: unknown): SavedAutomationCandidate {
+      const index = savedAutomationCandidates.findIndex((automation) => automation.id === id);
+      if (index === -1) {
+        throw new SaveAutomationCandidateError(
+          "SAVED_AUTOMATION_NOT_FOUND",
+          "Choose an existing saved automation before saving changes.",
+          404
+        );
+      }
+
+      const validDraft = validateDraftForSave(draft);
+      const savedAutomationCandidate: SavedAutomationCandidate = {
+        ...validDraft,
+        id: savedAutomationCandidates[index].id,
+        createdAt: savedAutomationCandidates[index].createdAt
+      };
+
+      savedAutomationCandidates[index] = savedAutomationCandidate;
+      return cloneSavedAutomationCandidate(savedAutomationCandidate);
     }
   };
 }

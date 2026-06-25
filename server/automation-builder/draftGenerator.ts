@@ -1,4 +1,9 @@
-import { ClarificationAnswer, DraftAutomationCreationResult, nodeTypes } from "../../shared/draftAutomation.js";
+import {
+  ClarificationAnswer,
+  DraftAutomationCreationResult,
+  SavedAutomationCandidate,
+  nodeTypes
+} from "../../shared/draftAutomation.js";
 import { DraftValidationError, validateDraftAutomationCreationResultShape } from "../../shared/draftValidation.js";
 import { requestOpenRouterStructuredOutput } from "../llm/openRouterStructuredOutput.js";
 
@@ -148,6 +153,10 @@ export interface DraftAutomationCreationConfig {
   fetchImpl?: typeof fetch;
 }
 
+export interface DraftAutomationCreationContext {
+  savedAutomationContext?: SavedAutomationCandidate;
+}
+
 export class DraftAutomationCreationError extends Error {
   constructor(
     public readonly code: string,
@@ -162,7 +171,8 @@ export class DraftAutomationCreationError extends Error {
 export async function createDraftAutomationCreationResult(
   prompt: string,
   clarificationAnswers: ClarificationAnswer[],
-  config: DraftAutomationCreationConfig
+  config: DraftAutomationCreationConfig,
+  context: DraftAutomationCreationContext = {}
 ): Promise<DraftAutomationCreationResult> {
   const trimmedPrompt = prompt.trim();
 
@@ -189,14 +199,16 @@ export async function createDraftAutomationCreationResult(
     messages: [
       {
         role: "system",
-        content:
-          "You create Draft Automation Creation Results for AutoM8. Return only JSON that matches the schema. If execution-critical details are missing, return status needs_clarification with draft null and specific Clarification Questions. Do not guess file names, spreadsheet tabs or ranges, app names, websites, sender accounts, recipients, schedules, time zones, or side-effect targets. These missing facts are Execution Blockers. When all Execution Blockers are answered, return status draft_created with questions [] and a Draft Automation whose steps include Draft Step Details for inputs, outputs, fallbacks, and verification. nodeType must be one of deterministic, perception, llm, control, verification."
+        content: systemPromptFor(context)
       },
       {
         role: "user",
         content: JSON.stringify({
           workflowPrompt: trimmedPrompt,
           clarificationAnswers,
+          ...(context.savedAutomationContext
+            ? { savedAutomationContext: draftContextForModel(context.savedAutomationContext) }
+            : {}),
           v1ExecutionBlockers: [
             "specific app, file, spreadsheet, or website",
             "spreadsheet sheet, tab, range, column, or metric location",
@@ -242,6 +254,25 @@ export async function createDraftAutomationCreationResult(
   }
 
   return validateCreationResult(result.parsedJson, config.model, result.providerStatus);
+}
+
+function systemPromptFor(context: DraftAutomationCreationContext): string {
+  const basePrompt =
+    "You create Draft Automation Creation Results for AutoM8. Return only JSON that matches the schema. If execution-critical details are missing, return status needs_clarification with draft null and specific Clarification Questions. Do not guess file names, spreadsheet tabs or ranges, app names, websites, sender accounts, recipients, schedules, time zones, or side-effect targets. These missing facts are Execution Blockers. When all Execution Blockers are answered, return status draft_created with questions [] and a Draft Automation whose steps include Draft Step Details for inputs, outputs, fallbacks, and verification. nodeType must be one of deterministic, perception, llm, control, verification.";
+
+  if (!context.savedAutomationContext) {
+    return basePrompt;
+  }
+
+  return `${basePrompt} A savedAutomationContext means workflowPrompt is an edit request for that saved automation. Use the saved automation as the baseline, apply the requested change, and return the complete updated Draft Automation, not a patch or partial diff.`;
+}
+
+function draftContextForModel(savedAutomation: SavedAutomationCandidate) {
+  return {
+    name: savedAutomation.name,
+    summary: savedAutomation.summary,
+    steps: savedAutomation.steps
+  };
 }
 
 function validateCreationResult(value: unknown, model: string, providerStatus: number): DraftAutomationCreationResult {

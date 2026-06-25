@@ -33,7 +33,7 @@ export interface AutomationRunManagerConfig {
 }
 
 export function createAutomationRunManager(config: AutomationRunManagerConfig) {
-  const runs: AutomationRun[] = [];
+  let runs: AutomationRun[] = [];
   const continuations = new Map<string, Promise<void>>();
   const plans = new Map<string, ExecutableActionPlan>();
   const idFactory = config.idFactory ?? randomUUID;
@@ -201,6 +201,24 @@ export function createAutomationRunManager(config: AutomationRunManagerConfig) {
   return {
     list(): AutomationRun[] {
       return runs.map(cloneRun);
+    },
+
+    hasActiveRunForAutomation(automationId: string): boolean {
+      return runs.some(
+        (run) =>
+          run.automationId === automationId &&
+          (run.status === "queued" || run.status === "running" || run.status === "waiting_for_approval")
+      );
+    },
+
+    clearRunsForAutomation(automationId: string): void {
+      const runsToClear = runs.filter((run) => run.automationId === automationId);
+      runs = runs.filter((run) => run.automationId !== automationId);
+
+      for (const run of runsToClear) {
+        plans.delete(run.id);
+        continuations.delete(run.id);
+      }
     },
 
     get(id: string): AutomationRun {

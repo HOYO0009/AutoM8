@@ -13,6 +13,10 @@ export interface SaveDraftAutomationCandidateResponse extends SavedAutomationCan
   savedAutomationCandidate: SavedAutomationCandidate;
 }
 
+export interface ReplaceSavedAutomationCandidateResponse extends SavedAutomationCandidatesResponse {
+  savedAutomationCandidate: SavedAutomationCandidate;
+}
+
 export interface RunAutomationResponse {
   runId: string;
   run: AutomationRun;

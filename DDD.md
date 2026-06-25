@@ -17,6 +17,7 @@ Keep domain language consistent across code, UI, APIs, tests, and vertical-slice
 | Execution Blocker | A missing execution-critical fact such as the exact file, app, website, spreadsheet tab, data range, account, recipient, schedule, time zone, or side-effect target. | Builder, runtime safety | `server/automation-builder/draftGenerator.ts`, `documentation/vertical-slices/automation-builder/prompt-to-draft-automation.md` |
 | Draft Step Details | Modeled inputs, outputs, fallbacks, and verification for one Draft Automation step. | Builder, graph inspection | `shared/automationDraft.ts`, `shared/automationGraph.ts`, `src/nodeGraphViewer/NodeGraphViewer.tsx` |
 | Saved automation candidate | Prototype term for a generated draft automation saved in memory with an ID and creation time, but not executed or persisted across server restart. | Builder | `server/automation-builder/savedAutomationCandidateStore.ts`, `server/automation-builder/savedAutomationCandidateStore.test.ts` |
+| Saved Automation Prompt Edit | The behavior where a user describes a change to an existing saved automation candidate and AutoM8 uses that candidate as context to create a complete edited Draft Automation. | Builder | `documentation/vertical-slices/automation-builder/edit-saved-automation-with-prompt.md`, `server/automation-builder/draftGenerator.ts`, `src/automationBuilder/useAutomationWorkspace.ts` |
 | Automation run | A recorded attempt to run a saved automation candidate, including timestamps, overall status, and per-step results. | Runner | `server/automation-runner/automationRunStore.ts`, `server/automation-runner/automationRunStore.test.ts` |
 | Executable action plan | The ordered runtime plan for an automation run, made of executable actions grouped by automation step. | Runner | `server/automation-runner/executableActionPlanner.ts`, `server/automation-runner/executableActionRegistry.ts`, `server/automation-runner/executableActionPlanner.test.ts` |
 | Hybrid runner | The Windows-first runner that executes deterministic actions directly, pauses side effects for approval, and runs non-deterministic desktop tasks from screenshot and accessibility evidence. | Runner | `documentation/vertical-slices/automation-runner/README.md` |
@@ -37,12 +38,14 @@ Keep domain language consistent across code, UI, APIs, tests, and vertical-slice
 | Concept | Invariants / Rules | Related slices/modules | Notes |
 |---|---|---|---|
 | Automation graph inspection | The viewer must expose modeled automation facts directly from draft or saved automation data; inputs, outputs, fallbacks, and verification come from Draft Step Details and are shown as not modeled yet only when those detail lists are empty. | Node Graph Viewer | Latest-run context may annotate nodes, but it must not imply unavailable graph metadata exists. |
+| Saved Automation Prompt Edit | Prompt edits return a complete edited Draft Automation, not a patch. Saving the edited draft replaces the saved automation candidate in place and clears stale latest-run context for that candidate. | Automation Builder | Replacement preserves the saved candidate ID and creation time while updating name, summary, and steps. |
 
 ## Naming Conventions
 
 | Domain idea | Preferred name | Avoid | Reason |
 |---|---|---|---|
 | Prompt-to-draft behavior | Draft Automation Creation | Generator result, draftGenerator, LLM result | User-visible docs, UI, tests, and API DTOs should use domain language; implementation filenames may still reflect existing module boundaries. |
+| Prompted edit behavior | Saved Automation Prompt Edit | Patch, diff-only edit | The user-visible behavior previews a full edited Draft Automation before replacing the saved candidate. |
 | Missing required workflow fact | Execution Blocker | Missing detail, vague field | Identifies facts that block Draft Automation Creation instead of optional polish. |
 | Question before draft creation | Clarification Question / Clarification Answer | Follow-up prompt, chat question | Keeps the builder flow precise without implying a chat session or server-side conversation state. |
 

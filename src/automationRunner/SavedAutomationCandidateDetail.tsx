@@ -1,4 +1,4 @@
-import { AlertCircle, LoaderCircle, Play } from "lucide-react";
+import { AlertCircle, LoaderCircle, Pencil, Play } from "lucide-react";
 
 import { AutomationRun, SavedAutomationCandidate } from "../../shared/draftAutomation";
 import { NodeGraphViewer } from "../nodeGraphViewer/NodeGraphViewer";
@@ -10,6 +10,7 @@ export function SavedAutomationCandidateDetail({
   runError,
   runningAutomationId,
   onRun,
+  onEdit,
   onApproval
 }: {
   automation: SavedAutomationCandidate;
@@ -17,6 +18,7 @@ export function SavedAutomationCandidateDetail({
   runError?: string;
   runningAutomationId: string | null;
   onRun: (automationId: string) => void;
+  onEdit?: (automationId: string) => void;
   onApproval: (runId: string, approvalId: string, decision: "approve" | "deny") => void;
 }) {
   const hasActiveRun = latestRun ? ["queued", "running", "waiting_for_approval"].includes(latestRun.status) : false;
@@ -34,7 +36,13 @@ export function SavedAutomationCandidateDetail({
             <span>
               {automation.steps.length} {automation.steps.length === 1 ? "step" : "steps"}
             </span>
-            <button type="button" onClick={() => onRun(automation.id)} disabled={Boolean(runningAutomationId)}>
+            {onEdit ? (
+              <button type="button" onClick={() => onEdit(automation.id)} disabled={isRunning || Boolean(runningAutomationId)}>
+                <Pencil aria-hidden="true" size={16} />
+                Edit
+              </button>
+            ) : null}
+            <button type="button" onClick={() => onRun(automation.id)} disabled={Boolean(runningAutomationId) || hasActiveRun}>
               {isRunning ? (
                 <LoaderCircle aria-hidden="true" className="spin" size={16} />
               ) : (

@@ -7,6 +7,7 @@ import {
   DraftAutomation,
   DraftAutomationCreationResult,
   DraftAutomationCreationResponse,
+  ReplaceSavedAutomationCandidateResponse,
   RunAutomationResponse,
   SavedAutomationCandidate,
   SavedAutomationCandidatesResponse,
@@ -60,6 +61,43 @@ export async function saveDraftAutomation(draft: DraftAutomation): Promise<SaveD
       body: JSON.stringify({ draft })
     },
     "AutoM8 could not save the draft."
+  );
+}
+
+export async function createSavedAutomationEditDraft(
+  automationId: string,
+  prompt: string,
+  clarificationAnswers: ClarificationAnswer[] = []
+): Promise<DraftAutomationCreationResult> {
+  const payload = await requestJson<DraftAutomationCreationResponse>(
+    `/api/saved-automations/${encodeURIComponent(automationId)}/edit-draft`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ prompt, clarificationAnswers })
+    },
+    "AutoM8 could not create an edited draft."
+  );
+
+  return payload.creationResult;
+}
+
+export async function replaceSavedAutomation(
+  automationId: string,
+  draft: DraftAutomation
+): Promise<ReplaceSavedAutomationCandidateResponse> {
+  return requestJson<ReplaceSavedAutomationCandidateResponse>(
+    `/api/saved-automations/${encodeURIComponent(automationId)}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ draft })
+    },
+    "AutoM8 could not save automation changes."
   );
 }
 

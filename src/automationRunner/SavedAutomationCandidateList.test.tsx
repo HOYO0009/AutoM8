@@ -89,6 +89,7 @@ describe("SavedAutomationCandidateList", () => {
         latestRun={latestRun}
         runningAutomationId={null}
         onRun={() => undefined}
+        onEdit={() => undefined}
         onApproval={() => undefined}
       />
     );
@@ -96,6 +97,7 @@ describe("SavedAutomationCandidateList", () => {
     expect(html).toContain("Saved automation");
     expect(html).toContain("Morning Revenue automation graph");
     expect(html).toContain("Inspectable automation flow");
+    expect(html).toContain("Edit");
     expect(html).toContain("Run");
     expect(html).toContain("Latest run");
     expect(html).toContain("Completed");

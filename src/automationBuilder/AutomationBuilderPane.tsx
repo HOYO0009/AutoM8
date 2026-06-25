@@ -1,5 +1,5 @@
 import { AlertCircle, LoaderCircle, Sparkles } from "lucide-react";
-import { FormEvent } from "react";
+import { FormEvent, ReactNode } from "react";
 
 export function AutomationBuilderPane({
   prompt,
@@ -8,7 +8,14 @@ export function AutomationBuilderPane({
   canGenerate,
   isGenerating,
   error,
-  onGenerate
+  onGenerate,
+  eyebrow = "Automation Builder",
+  title = "Draft an automation from a prompt",
+  statusLabel = "In-memory draft",
+  promptLabel = "Workflow prompt",
+  promptPlaceholder = "Describe the desktop workflow AutoM8 should draft...",
+  submitLabel = "Generate draft",
+  headerAction
 }: {
   prompt: string;
   setPrompt: (prompt: string) => void;
@@ -17,6 +24,13 @@ export function AutomationBuilderPane({
   isGenerating: boolean;
   error: string | null;
   onGenerate: () => void;
+  eyebrow?: string;
+  title?: string;
+  statusLabel?: string;
+  promptLabel?: string;
+  promptPlaceholder?: string;
+  submitLabel?: string;
+  headerAction?: ReactNode;
 }) {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -27,19 +41,22 @@ export function AutomationBuilderPane({
     <div className="builder-pane">
       <header className="pane-header">
         <div>
-          <p className="eyebrow">Automation Builder</p>
-          <h1>Draft an automation from a prompt</h1>
+          <p className="eyebrow">{eyebrow}</p>
+          <h1>{title}</h1>
         </div>
-        <span className="status-pill">In-memory draft</span>
+        <div className="pane-header-actions">
+          <span className="status-pill">{statusLabel}</span>
+          {headerAction}
+        </div>
       </header>
 
       <form className="prompt-form" onSubmit={handleSubmit}>
-        <label htmlFor="workflow-prompt">Workflow prompt</label>
+        <label htmlFor="workflow-prompt">{promptLabel}</label>
         <textarea
           id="workflow-prompt"
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
-          placeholder="Describe the desktop workflow AutoM8 should draft..."
+          placeholder={promptPlaceholder}
           rows={10}
         />
         <div className="form-footer">
@@ -50,7 +67,7 @@ export function AutomationBuilderPane({
             ) : (
               <Sparkles aria-hidden="true" size={18} />
             )}
-            Generate draft
+            {submitLabel}
           </button>
         </div>
       </form>

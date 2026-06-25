@@ -3,9 +3,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { createDraftAutomationCreationResult } from "./automation-builder/draftGenerator.js";
-import { createSavedAutomationCandidateStore } from "./automation-builder/savedAutomationCandidateStore.js";
+import {
+  SaveAutomationCandidateError,
+  createSavedAutomationCandidateStore
+} from "./automation-builder/savedAutomationCandidateStore.js";
 import { createNonDeterministicDesktopTaskRunner } from "./automation-runner/nonDeterministicDesktopTaskRunner.js";
-import { createAutomationRunManager } from "./automation-runner/automationRunStore.js";
+import { RunAutomationError, createAutomationRunManager } from "./automation-runner/automationRunStore.js";
 import { createExecutableActionPlanner } from "./automation-runner/executableActionPlanner.js";
 import { createWindowsDesktopDriver } from "./desktop/desktopDriver.js";
 import { sendApiError } from "./apiErrorResponse.js";
@@ -58,6 +61,52 @@ export function createAutoM8App(env: NodeJS.ProcessEnv = process.env) {
     try {
       const savedAutomationCandidate = savedAutomationCandidateStore.save(request.body?.draft);
       response.status(201).json({
+        savedAutomationCandidate,
+        savedAutomationCandidates: savedAutomationCandidateStore.list()
+      });
+    } catch (error) {
+      sendApiError(response, error);
+    }
+  });
+
+  app.post("/api/saved-automations/:id/edit-draft", async (request, response) => {
+    const prompt = typeof request.body?.prompt === "string" ? request.body.prompt : "";
+
+    try {
+      const savedAutomationContext = requireSavedAutomationCandidate(
+        savedAutomationCandidateStore.get(request.params.id)
+      );
+      const clarificationAnswers = validateClarificationAnswersShape(request.body?.clarificationAnswers);
+      const creationResult = await createDraftAutomationCreationResult(
+        prompt,
+        clarificationAnswers,
+        {
+          apiKey: env.OPENROUTER_API_KEY,
+          model: env.OPENROUTER_MODEL,
+          baseUrl: env.OPENROUTER_BASE_URL
+        },
+        { savedAutomationContext }
+      );
+
+      response.json({ creationResult });
+    } catch (error) {
+      sendApiError(response, error);
+    }
+  });
+
+  app.put("/api/saved-automations/:id", (request, response) => {
+    try {
+      if (automationRunManager.hasActiveRunForAutomation(request.params.id)) {
+        throw new RunAutomationError(
+          "AUTOMATION_RUN_ACTIVE",
+          "Finish or cancel the active run before saving changes to this automation.",
+          409
+        );
+      }
+
+      const savedAutomationCandidate = savedAutomationCandidateStore.replace(request.params.id, request.body?.draft);
+      automationRunManager.clearRunsForAutomation(request.params.id);
+      response.json({
         savedAutomationCandidate,
         savedAutomationCandidates: savedAutomationCandidateStore.list()
       });
@@ -135,4 +184,16 @@ export function createAutoM8App(env: NodeJS.ProcessEnv = process.env) {
   }
 
   return app;
+}
+
+function requireSavedAutomationCandidate<T>(savedAutomationCandidate: T | undefined): T {
+  if (!savedAutomationCandidate) {
+    throw new SaveAutomationCandidateError(
+      "SAVED_AUTOMATION_NOT_FOUND",
+      "Choose an existing saved automation before editing.",
+      404
+    );
+  }
+
+  return savedAutomationCandidate;
 }
