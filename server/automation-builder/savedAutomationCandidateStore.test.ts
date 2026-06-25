@@ -16,7 +16,13 @@ describe("createSavedAutomationCandidateStore", () => {
         {
           title: "Open report",
           nodeType: "deterministic",
-          description: "Open the latest report file."
+          description: "Open the latest report file.",
+          details: {
+            inputs: ["Latest report file"],
+            outputs: ["Report is open"],
+            fallbacks: ["Ask the user to locate the report"],
+            verification: ["Report title is visible"]
+          }
         }
       ]
     });
@@ -30,7 +36,13 @@ describe("createSavedAutomationCandidateStore", () => {
         {
           title: "Open report",
           nodeType: "deterministic",
-          description: "Open the latest report file."
+          description: "Open the latest report file.",
+          details: {
+            inputs: ["Latest report file"],
+            outputs: ["Report is open"],
+            fallbacks: ["Ask the user to locate the report"],
+            verification: ["Report title is visible"]
+          }
         }
       ]
     });

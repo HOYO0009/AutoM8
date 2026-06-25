@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { SavedAutomationCandidate } from "../../shared/draftAutomation.js";
+import { DraftAutomationStep, SavedAutomationCandidate } from "../../shared/draftAutomation.js";
 import { actionRequiresApproval, createExecutableActionPlanner, createHeuristicExecutableActionPlan, validateAction, validateExecutableActionPlan } from "./executableActionPlanner.js";
 
 describe("createHeuristicExecutableActionPlan", () => {
@@ -11,7 +11,8 @@ describe("createHeuristicExecutableActionPlan", () => {
           {
             title: "Open Notepad",
             nodeType: "deterministic",
-            description: "Open Notepad and type \"hello\"."
+            description: "Open Notepad and type \"hello\".",
+            details: draftStepDetails()
           }
         ]
       })
@@ -31,7 +32,8 @@ describe("createHeuristicExecutableActionPlan", () => {
           {
             title: "Schedule event",
             nodeType: "control",
-            description: "Create the meeting in Google Calendar."
+            description: "Create the meeting in Google Calendar.",
+            details: draftStepDetails()
           }
         ]
       })
@@ -67,7 +69,8 @@ describe("createExecutableActionPlanner", () => {
           {
             title: "Open Notepad",
             nodeType: "deterministic",
-            description: "Open Notepad and type \"hello\"."
+            description: "Open Notepad and type \"hello\".",
+            details: draftStepDetails()
           }
         ]
       })
@@ -90,7 +93,8 @@ describe("createExecutableActionPlanner", () => {
           {
             title: "Open Notepad",
             nodeType: "deterministic",
-            description: "Open Notepad and type \"hello\"."
+            description: "Open Notepad and type \"hello\".",
+            details: draftStepDetails()
           }
         ]
       })
@@ -158,9 +162,19 @@ function savedAutomationCandidate(overrides: Partial<SavedAutomationCandidate> =
       {
         title: "Open Notepad",
         nodeType: "deterministic",
-        description: "Open Notepad and type hello."
+        description: "Open Notepad and type hello.",
+        details: draftStepDetails()
       }
     ],
     ...overrides
+  };
+}
+
+function draftStepDetails(): DraftAutomationStep["details"] {
+  return {
+    inputs: [],
+    outputs: [],
+    fallbacks: [],
+    verification: []
   };
 }

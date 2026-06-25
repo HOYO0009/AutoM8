@@ -3,8 +3,10 @@ import {
   AutomationRun,
   AutomationRunResponse,
   AutomationRunsResponse,
+  ClarificationAnswer,
   DraftAutomation,
-  DraftAutomationResponse,
+  DraftAutomationCreationResult,
+  DraftAutomationCreationResponse,
   RunAutomationResponse,
   SavedAutomationCandidate,
   SavedAutomationCandidatesResponse,
@@ -18,20 +20,23 @@ export class ApiClientError extends Error {
   }
 }
 
-export async function createDraftAutomation(prompt: string): Promise<DraftAutomation> {
-  const payload = await requestJson<DraftAutomationResponse>(
+export async function createDraftAutomationCreationResult(
+  prompt: string,
+  clarificationAnswers: ClarificationAnswer[] = []
+): Promise<DraftAutomationCreationResult> {
+  const payload = await requestJson<DraftAutomationCreationResponse>(
     "/api/draft-automation",
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ prompt })
+      body: JSON.stringify({ prompt, clarificationAnswers })
     },
     "AutoM8 could not create a draft."
   );
 
-  return payload.draft;
+  return payload.creationResult;
 }
 
 export async function fetchSavedAutomationCandidates(): Promise<SavedAutomationCandidate[]> {

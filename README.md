@@ -9,12 +9,12 @@ User goal:
 Let users create, inspect, edit, run, and monitor desktop-wide automations without manually scripting every step.
 
 Current status:
-Prototype phase. Initial target platform is Windows. The web prototype creates a draft automation from a natural-language prompt through a local OpenRouter-backed API, shows draft and saved automations as inspectable node graphs, lets the user save the generated draft as an in-memory automation candidate, and runs concrete deterministic saved actions through a local Windows desktop driver. Runs are asynchronous, show step evidence, and pause for approval before external side effects. Non-deterministic desktop tasks use screenshot/accessibility evidence, one model-selected action at a time, and fresh-evidence verification.
+Prototype phase. Initial target platform is Windows. The web prototype creates a Draft Automation from a natural-language prompt through a local OpenRouter-backed API, asks Clarification Questions before drafting when execution-critical details are missing, shows draft and saved automations as inspectable node graphs, lets the user save the generated draft as an in-memory automation candidate, and runs concrete deterministic saved actions through a local Windows desktop driver. Runs are asynchronous, show step evidence, and pause for approval before external side effects. Non-deterministic desktop tasks use screenshot/accessibility evidence, one model-selected action at a time, and fresh-evidence verification.
 
 ## Quick Start
 
 Prerequisites: Node.js 24 and npm 11.
-Setup: `npm install`, then copy `.env.example` to `.env` and set `OPENROUTER_API_KEY` and `OPENROUTER_MODEL`. Use an OpenRouter model that supports structured outputs because draft generation requires a JSON schema response.
+Setup: `npm install`, then copy `.env.example` to `.env` and set `OPENROUTER_API_KEY` and `OPENROUTER_MODEL`. Use an OpenRouter model that supports structured outputs because Draft Automation Creation requires a JSON schema response.
 Run: `npm run dev`
 Test: `npm run test`
 
@@ -42,7 +42,7 @@ Test: `npm run test`
 | `documentation/vertical-slices/node-graph-viewer/` | Node Graph Viewer slice notes for inspecting draft and saved automation graphs. |
 | `graphify-out/` | Generated Graphify code graph report, interactive graph, and raw graph data. |
 | `server/` | Local API app factory, composition entrypoint, and backend modules. |
-| `server/automation-builder/` | OpenRouter draft generation and in-memory saved automation candidate storage. |
+| `server/automation-builder/` | OpenRouter Draft Automation Creation and in-memory saved automation candidate storage. |
 | `server/automation-runner/` | Executable action registry/planning, run state, approval gates, and non-deterministic desktop tasks with screenshot/accessibility perception. |
 | `server/desktop/` | Windows desktop driver actions. |
 | `server/llm/` | Shared OpenRouter structured-output request plumbing. |

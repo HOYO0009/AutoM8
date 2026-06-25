@@ -10,7 +10,12 @@ Keep domain language consistent across code, UI, APIs, tests, and vertical-slice
 | Automation | A saved desktop workflow that can be inspected, edited, run, and monitored. | Product | TODO: Map during persistence and dashboard slices. |
 | Automation Builder | The module where a user creates an automation from a prompt or, in later slices, recorded desktop actions. | Builder | `documentation/vertical-slices/automation-builder/README.md` |
 | Automation graph | The inspectable node graph representation of an automation, backed today by ordered draft steps and prepared for future editing. | Builder, runtime | `documentation/vertical-slices/node-graph-viewer/inspect-automation-graph.md`, `shared/automationGraph.ts`, `src/nodeGraphViewer/NodeGraphViewer.tsx` |
-| Draft automation | An unsaved automation preview generated from a user prompt, with a name, summary, and ordered steps. | Builder | `server/automation-builder/draftGenerator.ts`, `shared/draftValidation.ts`, `server/automation-builder/draftGenerator.test.ts` |
+| Draft Automation Creation | The Automation Builder behavior that turns a workflow prompt and optional Clarification Answers into either Clarification Questions or a Draft Automation. | Builder | `documentation/vertical-slices/automation-builder/prompt-to-draft-automation.md`, `server/automation-builder/draftGenerator.ts`, `src/automationBuilder/useAutomationWorkspace.ts` |
+| Draft automation | An unsaved automation preview generated from a user prompt and any required Clarification Answers, with a name, summary, ordered steps, and Draft Step Details. | Builder | `server/automation-builder/draftGenerator.ts`, `shared/draftValidation.ts`, `server/automation-builder/draftGenerator.test.ts` |
+| Clarification Question | A specific question AutoM8 asks when a workflow prompt is missing an Execution Blocker required before Draft Automation Creation can continue. | Builder | `shared/automationDraft.ts`, `src/automationBuilder/ClarificationPanel.tsx` |
+| Clarification Answer | A user-provided text answer to a Clarification Question. | Builder | `shared/automationDraft.ts`, `src/automationBuilder/useAutomationWorkspace.ts` |
+| Execution Blocker | A missing execution-critical fact such as the exact file, app, website, spreadsheet tab, data range, account, recipient, schedule, time zone, or side-effect target. | Builder, runtime safety | `server/automation-builder/draftGenerator.ts`, `documentation/vertical-slices/automation-builder/prompt-to-draft-automation.md` |
+| Draft Step Details | Modeled inputs, outputs, fallbacks, and verification for one Draft Automation step. | Builder, graph inspection | `shared/automationDraft.ts`, `shared/automationGraph.ts`, `src/nodeGraphViewer/NodeGraphViewer.tsx` |
 | Saved automation candidate | Prototype term for a generated draft automation saved in memory with an ID and creation time, but not executed or persisted across server restart. | Builder | `server/automation-builder/savedAutomationCandidateStore.ts`, `server/automation-builder/savedAutomationCandidateStore.test.ts` |
 | Automation run | A recorded attempt to run a saved automation candidate, including timestamps, overall status, and per-step results. | Runner | `server/automation-runner/automationRunStore.ts`, `server/automation-runner/automationRunStore.test.ts` |
 | Executable action plan | The ordered runtime plan for an automation run, made of executable actions grouped by automation step. | Runner | `server/automation-runner/executableActionPlanner.ts`, `server/automation-runner/executableActionRegistry.ts`, `server/automation-runner/executableActionPlanner.test.ts` |
@@ -31,12 +36,15 @@ Keep domain language consistent across code, UI, APIs, tests, and vertical-slice
 
 | Concept | Invariants / Rules | Related slices/modules | Notes |
 |---|---|---|---|
-| Automation graph inspection | The viewer must expose modeled automation facts directly from draft or saved automation data; inputs, outputs, fallbacks, and verification are shown as not modeled yet until those fields exist in the automation model. | Node Graph Viewer | Latest-run context may annotate nodes, but it must not imply unavailable graph metadata exists. |
+| Automation graph inspection | The viewer must expose modeled automation facts directly from draft or saved automation data; inputs, outputs, fallbacks, and verification come from Draft Step Details and are shown as not modeled yet only when those detail lists are empty. | Node Graph Viewer | Latest-run context may annotate nodes, but it must not imply unavailable graph metadata exists. |
 
 ## Naming Conventions
 
 | Domain idea | Preferred name | Avoid | Reason |
 |---|---|---|---|
+| Prompt-to-draft behavior | Draft Automation Creation | Generator result, draftGenerator, LLM result | User-visible docs, UI, tests, and API DTOs should use domain language; implementation filenames may still reflect existing module boundaries. |
+| Missing required workflow fact | Execution Blocker | Missing detail, vague field | Identifies facts that block Draft Automation Creation instead of optional polish. |
+| Question before draft creation | Clarification Question / Clarification Answer | Follow-up prompt, chat question | Keeps the builder flow precise without implying a chat session or server-side conversation state. |
 
 ## Open Language Questions
 

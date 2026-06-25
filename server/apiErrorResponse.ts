@@ -1,9 +1,10 @@
 import { Response } from "express";
 
-import { DraftGenerationError } from "./automation-builder/draftGenerator.js";
+import { DraftAutomationCreationError } from "./automation-builder/draftGenerator.js";
 import { SaveAutomationCandidateError } from "./automation-builder/savedAutomationCandidateStore.js";
 import { ExecutableActionPlanningError } from "./automation-runner/executableActionPlanner.js";
 import { RunAutomationError } from "./automation-runner/automationRunStore.js";
+import { DraftValidationError } from "../shared/draftValidation.js";
 
 export function sendApiError(response: Response, error: unknown): void {
   const apiError = toApiError(error);
@@ -16,11 +17,19 @@ export function sendApiError(response: Response, error: unknown): void {
 }
 
 function toApiError(error: unknown): { code: string; message: string; status: number } {
-  if (error instanceof DraftGenerationError) {
+  if (error instanceof DraftAutomationCreationError) {
     return {
       code: error.code,
       message: error.message,
       status: error.status
+    };
+  }
+
+  if (error instanceof DraftValidationError) {
+    return {
+      code: "INVALID_DRAFT_AUTOMATION_CREATION_REQUEST",
+      message: "Answer every clarification question before continuing.",
+      status: 400
     };
   }
 

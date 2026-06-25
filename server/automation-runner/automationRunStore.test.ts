@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ExecutableActionPlan, SavedAutomationCandidate } from "../../shared/draftAutomation.js";
+import { DraftAutomationStep, ExecutableActionPlan, SavedAutomationCandidate } from "../../shared/draftAutomation.js";
 import { NonDeterministicDesktopTaskRunner } from "./nonDeterministicDesktopTaskRunner.js";
 import { DesktopDriver } from "../desktop/desktopDriver.js";
 import { createAutomationRunManager, RunAutomationError } from "./automationRunStore.js";
@@ -54,12 +54,14 @@ describe("createAutomationRunManager", () => {
         {
           title: "Schedule calendar event",
           nodeType: "control",
-          description: "Create the event in Google Calendar."
+          description: "Create the event in Google Calendar.",
+          details: draftStepDetails()
         },
         {
           title: "Write confirmation",
           nodeType: "deterministic",
-          description: "Write done in Notepad."
+          description: "Write done in Notepad.",
+          details: draftStepDetails()
         }
       ]
     });
@@ -277,10 +279,20 @@ function savedAutomationCandidate(overrides: Partial<SavedAutomationCandidate> =
       {
         title: "Open Notepad",
         nodeType: "deterministic",
-        description: "Open Notepad and type hello."
+        description: "Open Notepad and type hello.",
+        details: draftStepDetails()
       }
     ],
     ...overrides
+  };
+}
+
+function draftStepDetails(): DraftAutomationStep["details"] {
+  return {
+    inputs: [],
+    outputs: [],
+    fallbacks: [],
+    verification: []
   };
 }
 

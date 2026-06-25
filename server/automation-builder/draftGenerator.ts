@@ -1,92 +1,180 @@
-import { DraftAutomation, nodeTypes } from "../../shared/draftAutomation.js";
-import { DraftValidationError, validateDraftAutomationShape } from "../../shared/draftValidation.js";
+import { ClarificationAnswer, DraftAutomationCreationResult, nodeTypes } from "../../shared/draftAutomation.js";
+import { DraftValidationError, validateDraftAutomationCreationResultShape } from "../../shared/draftValidation.js";
 import { requestOpenRouterStructuredOutput } from "../llm/openRouterStructuredOutput.js";
 
 const LLM_REQUEST_TIMEOUT_MS = 30_000;
 const INVALID_LLM_RESPONSE_MESSAGE =
-  "The configured draft generator did not return the required draft automation shape. Choose an OpenRouter model that supports structured outputs, then try again.";
+  "The configured draft automation creator did not return the required creation result shape. Choose an OpenRouter model that supports structured outputs, then try again.";
+
+const DRAFT_STEP_DETAILS_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    inputs: {
+      type: "array",
+      description: "Concrete inputs this step needs, such as app names, file paths, sheet tabs, accounts, recipients, URLs, schedules, or time zones.",
+      items: {
+        type: "string",
+        minLength: 1
+      }
+    },
+    outputs: {
+      type: "array",
+      description: "Concrete outputs this step produces for later steps or the user.",
+      items: {
+        type: "string",
+        minLength: 1
+      }
+    },
+    fallbacks: {
+      type: "array",
+      description: "Fallback behavior if the step cannot complete as planned.",
+      items: {
+        type: "string",
+        minLength: 1
+      }
+    },
+    verification: {
+      type: "array",
+      description: "Checks that prove the step succeeded.",
+      items: {
+        type: "string",
+        minLength: 1
+      }
+    }
+  },
+  required: ["inputs", "outputs", "fallbacks", "verification"]
+} as const;
+
 const DRAFT_AUTOMATION_SCHEMA = {
-  name: "DraftAutomation",
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    name: {
+      type: "string",
+      minLength: 1,
+      description: "Short name for the Draft Automation."
+    },
+    summary: {
+      type: "string",
+      minLength: 1,
+      description: "One-sentence summary of the desktop workflow."
+    },
+    steps: {
+      type: "array",
+      minItems: 1,
+      description: "Ordered Draft Automation steps AutoM8 can preview.",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          title: {
+            type: "string",
+            minLength: 1,
+            description: "Concise step title."
+          },
+          nodeType: {
+            type: "string",
+            enum: nodeTypes,
+            description: "AutoM8 node type for the step."
+          },
+          description: {
+            type: "string",
+            minLength: 1,
+            description: "Plain-language description of the action."
+          },
+          details: DRAFT_STEP_DETAILS_SCHEMA
+        },
+        required: ["title", "nodeType", "description", "details"]
+      }
+    }
+  },
+  required: ["name", "summary", "steps"]
+} as const;
+
+const CLARIFICATION_QUESTION_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    id: {
+      type: "string",
+      minLength: 1,
+      description: "Stable kebab-case identifier for the missing Execution Blocker."
+    },
+    question: {
+      type: "string",
+      minLength: 1,
+      description: "Specific question the user can answer in a text field."
+    },
+    reason: {
+      type: "string",
+      minLength: 1,
+      description: "Short reason this answer is required before Draft Automation Creation."
+    }
+  },
+  required: ["id", "question", "reason"]
+} as const;
+
+const DRAFT_AUTOMATION_CREATION_RESULT_SCHEMA = {
+  name: "DraftAutomationCreationResult",
   strict: true,
   schema: {
     type: "object",
     additionalProperties: false,
     properties: {
-      name: {
+      status: {
         type: "string",
-        minLength: 1,
-        description: "Short name for the draft automation."
+        enum: ["needs_clarification", "draft_created"],
+        description: "Whether AutoM8 needs Clarification Answers or created a Draft Automation."
       },
-      summary: {
-        type: "string",
-        minLength: 1,
-        description: "One-sentence summary of the desktop workflow."
+      draft: {
+        anyOf: [DRAFT_AUTOMATION_SCHEMA, { type: "null" }],
+        description: "Draft Automation when status is draft_created; null when status is needs_clarification."
       },
-      steps: {
+      questions: {
         type: "array",
-        minItems: 1,
-        description: "Ordered automation steps AutoM8 can preview.",
-        items: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            title: {
-              type: "string",
-              minLength: 1,
-              description: "Concise step title."
-            },
-            nodeType: {
-              type: "string",
-              enum: nodeTypes,
-              description: "AutoM8 node type for the step."
-            },
-            description: {
-              type: "string",
-              minLength: 1,
-              description: "Plain-language description of the action."
-            }
-          },
-          required: ["title", "nodeType", "description"]
-        }
+        description: "Clarification Questions when status is needs_clarification; empty when status is draft_created.",
+        items: CLARIFICATION_QUESTION_SCHEMA
       }
     },
-    required: ["name", "summary", "steps"]
+    required: ["status", "draft", "questions"]
   }
 } as const;
 
-export interface DraftGeneratorConfig {
+export interface DraftAutomationCreationConfig {
   apiKey?: string;
   model?: string;
   baseUrl?: string;
   fetchImpl?: typeof fetch;
 }
 
-export class DraftGenerationError extends Error {
+export class DraftAutomationCreationError extends Error {
   constructor(
     public readonly code: string,
     message: string,
     public readonly status = 400
   ) {
     super(message);
-    this.name = "DraftGenerationError";
+    this.name = "DraftAutomationCreationError";
   }
 }
 
-export async function createDraftAutomation(
+export async function createDraftAutomationCreationResult(
   prompt: string,
-  config: DraftGeneratorConfig
-): Promise<DraftAutomation> {
+  clarificationAnswers: ClarificationAnswer[],
+  config: DraftAutomationCreationConfig
+): Promise<DraftAutomationCreationResult> {
   const trimmedPrompt = prompt.trim();
 
   if (!trimmedPrompt) {
-    throw new DraftGenerationError(
+    throw new DraftAutomationCreationError(
       "EMPTY_PROMPT",
       "Describe the desktop workflow you want AutoM8 to draft."
     );
   }
 
   if (!config.apiKey || !config.model) {
-    throw new DraftGenerationError(
+    throw new DraftAutomationCreationError(
       "LLM_CONFIG_MISSING",
       "Set OPENROUTER_API_KEY and OPENROUTER_MODEL before generating draft automations."
     );
@@ -97,32 +185,43 @@ export async function createDraftAutomation(
     model: config.model,
     baseUrl: config.baseUrl,
     fetchImpl: config.fetchImpl,
-    schema: DRAFT_AUTOMATION_SCHEMA,
+    schema: DRAFT_AUTOMATION_CREATION_RESULT_SCHEMA,
     messages: [
       {
         role: "system",
         content:
-          "You create concise draft desktop automations for AutoM8. Return only JSON that matches the provided schema. Each step must include title, nodeType, and description. nodeType must be one of deterministic, perception, llm, control, verification."
+          "You create Draft Automation Creation Results for AutoM8. Return only JSON that matches the schema. If execution-critical details are missing, return status needs_clarification with draft null and specific Clarification Questions. Do not guess file names, spreadsheet tabs or ranges, app names, websites, sender accounts, recipients, schedules, time zones, or side-effect targets. These missing facts are Execution Blockers. When all Execution Blockers are answered, return status draft_created with questions [] and a Draft Automation whose steps include Draft Step Details for inputs, outputs, fallbacks, and verification. nodeType must be one of deterministic, perception, llm, control, verification."
       },
       {
         role: "user",
-        content: `Draft an automation from this workflow description:\n\n${trimmedPrompt}`
+        content: JSON.stringify({
+          workflowPrompt: trimmedPrompt,
+          clarificationAnswers,
+          v1ExecutionBlockers: [
+            "specific app, file, spreadsheet, or website",
+            "spreadsheet sheet, tab, range, column, or metric location",
+            "sender account or application identity",
+            "recipients or team destination",
+            "schedule time and time zone",
+            "external side-effect target"
+          ]
+        })
       }
     ],
     temperature: 0.2,
     timeoutMs: LLM_REQUEST_TIMEOUT_MS,
-    providerErrorFallback: "The configured draft generator rejected the request."
+    providerErrorFallback: "The configured draft automation creator rejected the request."
   });
 
   if (!result.ok) {
     if (result.kind === "provider") {
-      throw new DraftGenerationError("LLM_REQUEST_FAILED", result.message, 502);
+      throw new DraftAutomationCreationError("LLM_REQUEST_FAILED", result.message, 502);
     }
 
     if (result.kind === "timeout") {
-      throw new DraftGenerationError(
+      throw new DraftAutomationCreationError(
         "LLM_REQUEST_TIMEOUT",
-        "The configured draft generator took too long to respond. Try again or choose a faster OpenRouter model.",
+        "The configured draft automation creator took too long to respond. Try again or choose a faster OpenRouter model.",
         504
       );
     }
@@ -135,19 +234,19 @@ export async function createDraftAutomation(
       );
     }
 
-    throw new DraftGenerationError(
+    throw new DraftAutomationCreationError(
       "LLM_REQUEST_FAILED",
-      "AutoM8 could not reach the configured draft generator.",
+      "AutoM8 could not reach the configured draft automation creator.",
       502
     );
   }
 
-  return validateDraftAutomation(result.parsedJson, config.model, result.providerStatus);
+  return validateCreationResult(result.parsedJson, config.model, result.providerStatus);
 }
 
-function validateDraftAutomation(value: unknown, model: string, providerStatus: number): DraftAutomation {
+function validateCreationResult(value: unknown, model: string, providerStatus: number): DraftAutomationCreationResult {
   try {
-    return validateDraftAutomationShape(value);
+    return validateDraftAutomationCreationResultShape(value);
   } catch (error) {
     if (error instanceof DraftValidationError) {
       throw invalidResponseError(model, error.stage, providerStatus);
@@ -161,14 +260,14 @@ function invalidResponseError(
   model: string,
   stage: string,
   providerStatus: number
-): DraftGenerationError {
-  console.warn("AutoM8 draft generator returned an invalid response.", {
+): DraftAutomationCreationError {
+  console.warn("AutoM8 draft automation creator returned an invalid response.", {
     model,
     stage,
     providerStatus
   });
 
-  return new DraftGenerationError(
+  return new DraftAutomationCreationError(
     "INVALID_LLM_RESPONSE",
     INVALID_LLM_RESPONSE_MESSAGE,
     502

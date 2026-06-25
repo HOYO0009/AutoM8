@@ -2,13 +2,14 @@ import express from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { createDraftAutomation } from "./automation-builder/draftGenerator.js";
+import { createDraftAutomationCreationResult } from "./automation-builder/draftGenerator.js";
 import { createSavedAutomationCandidateStore } from "./automation-builder/savedAutomationCandidateStore.js";
 import { createNonDeterministicDesktopTaskRunner } from "./automation-runner/nonDeterministicDesktopTaskRunner.js";
 import { createAutomationRunManager } from "./automation-runner/automationRunStore.js";
 import { createExecutableActionPlanner } from "./automation-runner/executableActionPlanner.js";
 import { createWindowsDesktopDriver } from "./desktop/desktopDriver.js";
 import { sendApiError } from "./apiErrorResponse.js";
+import { validateClarificationAnswersShape } from "../shared/draftValidation.js";
 
 export function createAutoM8App(env: NodeJS.ProcessEnv = process.env) {
   const app = express();
@@ -36,13 +37,14 @@ export function createAutoM8App(env: NodeJS.ProcessEnv = process.env) {
     const prompt = typeof request.body?.prompt === "string" ? request.body.prompt : "";
 
     try {
-      const draft = await createDraftAutomation(prompt, {
+      const clarificationAnswers = validateClarificationAnswersShape(request.body?.clarificationAnswers);
+      const creationResult = await createDraftAutomationCreationResult(prompt, clarificationAnswers, {
         apiKey: env.OPENROUTER_API_KEY,
         model: env.OPENROUTER_MODEL,
         baseUrl: env.OPENROUTER_BASE_URL
       });
 
-      response.json({ draft });
+      response.json({ creationResult });
     } catch (error) {
       sendApiError(response, error);
     }

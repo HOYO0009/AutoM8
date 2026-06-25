@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { AutomationRun, SavedAutomationCandidate } from "../../shared/draftAutomation";
+import { AutomationRun, DraftStepDetails, SavedAutomationCandidate } from "../../shared/draftAutomation";
 import { SavedAutomationCandidateDetail } from "./SavedAutomationCandidateDetail";
 import { SavedAutomationCandidateList } from "./SavedAutomationCandidateList";
 
@@ -15,12 +15,14 @@ const savedAutomations: SavedAutomationCandidate[] = [
       {
         title: "Open spreadsheet",
         nodeType: "deterministic",
-        description: "Open the workbook."
+        description: "Open the workbook.",
+        details: draftStepDetails()
       },
       {
         title: "Draft email",
         nodeType: "llm",
-        description: "Write the update."
+        description: "Write the update.",
+        details: draftStepDetails()
       }
     ]
   },
@@ -33,7 +35,8 @@ const savedAutomations: SavedAutomationCandidate[] = [
       {
         title: "Open report",
         nodeType: "deterministic",
-        description: "Open the report app."
+        description: "Open the report app.",
+        details: draftStepDetails()
       }
     ]
   }
@@ -98,3 +101,12 @@ describe("SavedAutomationCandidateList", () => {
     expect(html).toContain("Completed");
   });
 });
+
+function draftStepDetails(): DraftStepDetails {
+  return {
+    inputs: [],
+    outputs: [],
+    fallbacks: [],
+    verification: []
+  };
+}

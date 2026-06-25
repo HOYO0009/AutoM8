@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { AutomationRun, DraftAutomation } from "../../shared/draftAutomation";
+import { AutomationRun, DraftAutomation, DraftStepDetails } from "../../shared/draftAutomation";
 import { NodeGraphViewer } from "./NodeGraphViewer";
 
 describe("NodeGraphViewer", () => {
@@ -13,12 +13,14 @@ describe("NodeGraphViewer", () => {
         {
           title: "Open sales spreadsheet",
           nodeType: "deterministic",
-          description: "Open the workbook that contains yesterday's sales."
+          description: "Open the workbook that contains yesterday's sales.",
+          details: draftStepDetails()
         },
         {
           title: "Draft team email",
           nodeType: "llm",
-          description: "Write a short summary for the team."
+          description: "Write a short summary for the team.",
+          details: draftStepDetails()
         }
       ]
     };
@@ -36,6 +38,34 @@ describe("NodeGraphViewer", () => {
     expect(html).toContain("Fallbacks");
     expect(html).toContain("Verification");
     expect(html).toContain("Not modeled yet");
+  });
+
+  it("renders modeled graph metadata when Draft Step Details exist", () => {
+    const html = renderToStaticMarkup(
+      <NodeGraphViewer
+        automation={{
+          name: "Morning Summary",
+          summary: "Collect revenue and draft an email.",
+          steps: [
+            {
+              title: "Open sales spreadsheet",
+              nodeType: "deterministic",
+              description: "Open the workbook that contains yesterday's sales.",
+              details: draftStepDetails({
+                inputs: ["C:/Reports/Sales.xlsx", "Daily Revenue tab"],
+                outputs: ["Sales workbook is open"],
+                fallbacks: ["Ask the user to choose the sales workbook"],
+                verification: ["Workbook title shows Sales.xlsx"]
+              })
+            }
+          ]
+        }}
+      />
+    );
+
+    expect(html).toContain("C:/Reports/Sales.xlsx; Daily Revenue tab");
+    expect(html).toContain("Sales workbook is open");
+    expect(html).toContain("Workbook title shows Sales.xlsx");
   });
 
   it("renders latest-run context for saved automation nodes", () => {
@@ -74,12 +104,14 @@ describe("NodeGraphViewer", () => {
             {
               title: "Open sales spreadsheet",
               nodeType: "deterministic",
-              description: "Open the workbook that contains yesterday's sales."
+              description: "Open the workbook that contains yesterday's sales.",
+              details: draftStepDetails()
             },
             {
               title: "Draft team email",
               nodeType: "llm",
-              description: "Write a short summary for the team."
+              description: "Write a short summary for the team.",
+              details: draftStepDetails()
             }
           ]
         }}
@@ -92,3 +124,13 @@ describe("NodeGraphViewer", () => {
     expect(html).toContain("Last action: launch_app");
   });
 });
+
+function draftStepDetails(overrides: Partial<DraftStepDetails> = {}): DraftStepDetails {
+  return {
+    inputs: [],
+    outputs: [],
+    fallbacks: [],
+    verification: [],
+    ...overrides
+  };
+}

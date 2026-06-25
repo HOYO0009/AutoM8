@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { AutomationRun, DraftAutomation, SavedAutomationCandidate } from "../../shared/draftAutomation";
+import {
+  AutomationRun,
+  ClarificationAnswer,
+  ClarificationQuestion,
+  DraftAutomation,
+  SavedAutomationCandidate
+} from "../../shared/draftAutomation";
 import {
   ApiClientError,
-  createDraftAutomation,
+  createDraftAutomationCreationResult,
   decideAutomationApproval,
   fetchAutomationRuns,
   fetchSavedAutomationCandidates,
@@ -17,6 +23,8 @@ export const examplePrompt =
 export function useAutomationWorkspace() {
   const [prompt, setPrompt] = useState(examplePrompt);
   const [draft, setDraft] = useState<DraftAutomation | null>(null);
+  const [clarificationQuestions, setClarificationQuestions] = useState<ClarificationQuestion[]>([]);
+  const [clarificationAnswerText, setClarificationAnswerText] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedNotice, setSavedNotice] = useState<string | null>(null);
@@ -32,6 +40,18 @@ export function useAutomationWorkspace() {
   );
   const trimmedPrompt = prompt.trim();
   const canGenerate = trimmedPrompt.length > 0 && !isGenerating;
+  const clarificationAnswers = useMemo<ClarificationAnswer[]>(() => {
+    return clarificationQuestions
+      .map((question) => ({
+        questionId: question.id,
+        answer: clarificationAnswerText[question.id]?.trim() ?? ""
+      }))
+      .filter((answer) => answer.answer.length > 0);
+  }, [clarificationAnswerText, clarificationQuestions]);
+  const canSubmitClarifications =
+    clarificationQuestions.length > 0 &&
+    clarificationQuestions.every((question) => Boolean(clarificationAnswerText[question.id]?.trim())) &&
+    !isGenerating;
   const promptWordCount = useMemo(() => {
     return trimmedPrompt ? trimmedPrompt.split(/\s+/).length : 0;
   }, [trimmedPrompt]);
@@ -91,18 +111,64 @@ export function useAutomationWorkspace() {
     };
   }, [hasActiveRun, loadAutomationRuns]);
 
+  function updatePrompt(nextPrompt: string) {
+    setPrompt(nextPrompt);
+    setDraft(null);
+    setClarificationQuestions([]);
+    setClarificationAnswerText({});
+    setError(null);
+    setSaveError(null);
+    setSavedNotice(null);
+  }
+
   async function generateDraft() {
     if (!canGenerate) {
       return;
     }
 
+    await createDraftAutomationFromPrompt([]);
+  }
+
+  async function submitClarificationAnswers() {
+    if (!canSubmitClarifications) {
+      return;
+    }
+
+    await createDraftAutomationFromPrompt(clarificationAnswers);
+  }
+
+  function updateClarificationAnswer(questionId: string, answer: string) {
+    setClarificationAnswerText((currentAnswers) => ({
+      ...currentAnswers,
+      [questionId]: answer
+    }));
+  }
+
+  async function createDraftAutomationFromPrompt(answers: ClarificationAnswer[]) {
     setIsGenerating(true);
     setError(null);
     setSaveError(null);
     setSavedNotice(null);
 
     try {
-      setDraft(await createDraftAutomation(trimmedPrompt));
+      const creationResult = await createDraftAutomationCreationResult(trimmedPrompt, answers);
+
+      if (creationResult.status === "needs_clarification") {
+        setDraft(null);
+        setClarificationQuestions(creationResult.questions);
+        setClarificationAnswerText((currentAnswers) => {
+          const nextAnswers: Record<string, string> = {};
+          for (const question of creationResult.questions) {
+            nextAnswers[question.id] = currentAnswers[question.id] ?? "";
+          }
+          return nextAnswers;
+        });
+        return;
+      }
+
+      setDraft(creationResult.draft);
+      setClarificationQuestions([]);
+      setClarificationAnswerText({});
     } catch (generationError) {
       setDraft(null);
       setError(
@@ -177,8 +243,10 @@ export function useAutomationWorkspace() {
 
   return {
     prompt,
-    setPrompt,
+    setPrompt: updatePrompt,
     draft,
+    clarificationQuestions,
+    clarificationAnswerText,
     error,
     saveError,
     savedNotice,
@@ -189,8 +257,11 @@ export function useAutomationWorkspace() {
     isSaving,
     runningAutomationId,
     canGenerate,
+    canSubmitClarifications,
     promptWordCount,
     generateDraft,
+    submitClarificationAnswers,
+    updateClarificationAnswer,
     saveDraft,
     runAutomation,
     decideApproval

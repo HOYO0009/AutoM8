@@ -28,32 +28,12 @@ export interface AutomationGraph {
   nodes: AutomationGraphNode[];
 }
 
-const unavailableMetadata: AutomationGraphMetadata[] = [
-  {
-    kind: "inputs",
-    label: "Inputs",
-    state: "unavailable",
-    summary: "Not modeled yet"
-  },
-  {
-    kind: "outputs",
-    label: "Outputs",
-    state: "unavailable",
-    summary: "Not modeled yet"
-  },
-  {
-    kind: "fallbacks",
-    label: "Fallbacks",
-    state: "unavailable",
-    summary: "Not modeled yet"
-  },
-  {
-    kind: "verification",
-    label: "Verification",
-    state: "unavailable",
-    summary: "Not modeled yet"
-  }
-];
+const metadataLabels: Record<AutomationGraphMetadataKind, string> = {
+  inputs: "Inputs",
+  outputs: "Outputs",
+  fallbacks: "Fallbacks",
+  verification: "Verification"
+};
 
 export function createAutomationGraph(automation: DraftAutomation, latestRun?: AutomationRun): AutomationGraph {
   return {
@@ -70,10 +50,32 @@ export function createAutomationGraph(automation: DraftAutomation, latestRun?: A
         description: step.description,
         runStatus: runStep?.status,
         actionType: runStep?.actionType,
-        metadata: unavailableMetadata.map((item) => ({ ...item }))
+        metadata: createStepMetadata(step)
       };
     })
   };
+}
+
+function createStepMetadata(step: DraftAutomationStep): AutomationGraphMetadata[] {
+  return (Object.keys(metadataLabels) as AutomationGraphMetadataKind[]).map((kind) => {
+    const values = step.details[kind];
+
+    if (values.length === 0) {
+      return {
+        kind,
+        label: metadataLabels[kind],
+        state: "unavailable",
+        summary: "Not modeled yet"
+      };
+    }
+
+    return {
+      kind,
+      label: metadataLabels[kind],
+      state: "available",
+      summary: values.join("; ")
+    };
+  });
 }
 
 function slugify(value: string): string {

@@ -47,10 +47,14 @@ export function NodeGraphViewer({
 
               <dl className="node-metadata-list">
                 {node.metadata.map((item) => (
-                  <div key={item.kind}>
+                  <div key={item.kind} className={item.state}>
                     <dt>{item.label}</dt>
                     <dd>
-                      <CircleDashed aria-hidden="true" size={13} />
+                      {item.state === "available" ? (
+                        <CheckCircle2 aria-hidden="true" size={13} />
+                      ) : (
+                        <CircleDashed aria-hidden="true" size={13} />
+                      )}
                       {item.summary}
                     </dd>
                   </div>

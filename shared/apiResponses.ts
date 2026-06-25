@@ -1,8 +1,8 @@
-import { DraftAutomation, SavedAutomationCandidate } from "./automationDraft.js";
+import { DraftAutomationCreationResult, SavedAutomationCandidate } from "./automationDraft.js";
 import { AutomationRun } from "./automationRun.js";
 
-export interface DraftAutomationResponse {
-  draft: DraftAutomation;
+export interface DraftAutomationCreationResponse {
+  creationResult: DraftAutomationCreationResult;
 }
 
 export interface SavedAutomationCandidatesResponse {

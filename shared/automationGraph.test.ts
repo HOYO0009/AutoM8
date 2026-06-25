@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createAutomationGraph } from "./automationGraph.js";
-import { AutomationRun, DraftAutomation } from "./draftAutomation.js";
+import { AutomationRun, DraftAutomation, DraftStepDetails } from "./draftAutomation.js";
 
 describe("createAutomationGraph", () => {
   it("projects draft automation steps into inspectable graph nodes", () => {
@@ -12,12 +12,14 @@ describe("createAutomationGraph", () => {
         {
           title: "Open sales spreadsheet",
           nodeType: "deterministic",
-          description: "Open the workbook that contains yesterday's sales."
+          description: "Open the workbook that contains yesterday's sales.",
+          details: draftStepDetails()
         },
         {
           title: "Read revenue",
           nodeType: "perception",
-          description: "Find yesterday's revenue total."
+          description: "Find yesterday's revenue total.",
+          details: draftStepDetails()
         }
       ]
     };
@@ -54,7 +56,8 @@ describe("createAutomationGraph", () => {
         {
           title: "Classify message",
           nodeType: "llm",
-          description: "Decide the message category."
+          description: "Decide the message category.",
+          details: draftStepDetails()
         }
       ]
     });
@@ -83,6 +86,53 @@ describe("createAutomationGraph", () => {
         label: "Verification",
         state: "unavailable",
         summary: "Not modeled yet"
+      }
+    ]);
+  });
+
+  it("projects modeled Draft Step Details as available graph metadata", () => {
+    const graph = createAutomationGraph({
+      name: "Daily Sales Summary",
+      summary: "Collect revenue and draft an email.",
+      steps: [
+        {
+          title: "Extract revenue",
+          nodeType: "perception",
+          description: "Find yesterday's revenue total.",
+          details: draftStepDetails({
+            inputs: ["Sales.xlsx", "Daily Revenue tab"],
+            outputs: ["Yesterday's total revenue"],
+            fallbacks: ["Ask the user to identify the revenue cell"],
+            verification: ["Revenue value is tied to yesterday's date"]
+          })
+        }
+      ]
+    });
+
+    expect(graph.nodes[0].metadata).toEqual([
+      {
+        kind: "inputs",
+        label: "Inputs",
+        state: "available",
+        summary: "Sales.xlsx; Daily Revenue tab"
+      },
+      {
+        kind: "outputs",
+        label: "Outputs",
+        state: "available",
+        summary: "Yesterday's total revenue"
+      },
+      {
+        kind: "fallbacks",
+        label: "Fallbacks",
+        state: "available",
+        summary: "Ask the user to identify the revenue cell"
+      },
+      {
+        kind: "verification",
+        label: "Verification",
+        state: "available",
+        summary: "Revenue value is tied to yesterday's date"
       }
     ]);
   });
@@ -123,12 +173,14 @@ describe("createAutomationGraph", () => {
           {
             title: "Open sales spreadsheet",
             nodeType: "deterministic",
-            description: "Open the workbook that contains yesterday's sales."
+            description: "Open the workbook that contains yesterday's sales.",
+            details: draftStepDetails()
           },
           {
             title: "Read revenue",
             nodeType: "perception",
-            description: "Find yesterday's revenue total."
+            description: "Find yesterday's revenue total.",
+            details: draftStepDetails()
           }
         ]
       },
@@ -147,3 +199,13 @@ describe("createAutomationGraph", () => {
     ]);
   });
 });
+
+function draftStepDetails(overrides: Partial<DraftStepDetails> = {}): DraftStepDetails {
+  return {
+    inputs: [],
+    outputs: [],
+    fallbacks: [],
+    verification: [],
+    ...overrides
+  };
+}

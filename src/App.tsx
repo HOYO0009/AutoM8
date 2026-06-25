@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { AutomationBuilderPane } from "./automationBuilder/AutomationBuilderPane";
+import { ClarificationPanel } from "./automationBuilder/ClarificationPanel";
 import { DraftPreview } from "./automationBuilder/DraftPreview";
 import { EmptyPreview } from "./automationBuilder/EmptyPreview";
 import { useAutomationWorkspace } from "./automationBuilder/useAutomationWorkspace";
@@ -74,6 +75,15 @@ export function App() {
                     onSave={saveDraftAndFocus}
                     saveError={workspace.saveError}
                     savedNotice={workspace.savedNotice}
+                  />
+                ) : workspace.clarificationQuestions.length > 0 ? (
+                  <ClarificationPanel
+                    questions={workspace.clarificationQuestions}
+                    answerText={workspace.clarificationAnswerText}
+                    isGenerating={workspace.isGenerating}
+                    canSubmit={workspace.canSubmitClarifications}
+                    onAnswerChange={workspace.updateClarificationAnswer}
+                    onSubmit={workspace.submitClarificationAnswers}
                   />
                 ) : (
                   <EmptyPreview isGenerating={workspace.isGenerating} />
