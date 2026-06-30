@@ -28,6 +28,8 @@ export function useDraftAutomationCreation({
     return clarificationQuestions
       .map((question) => ({
         questionId: question.id,
+        question: question.question,
+        reason: question.reason,
         answer: clarificationAnswerText[question.id]?.trim() ?? ""
       }))
       .filter((answer) => answer.answer.length > 0);

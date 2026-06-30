@@ -20,6 +20,8 @@ export type DraftValidationStage =
   | "clarification-question-reason"
   | "clarification-answer-shape"
   | "clarification-answer-question-id"
+  | "clarification-answer-question"
+  | "clarification-answer-reason"
   | "clarification-answer-answer"
   | "draft-shape"
   | "draft-name"
@@ -211,9 +213,15 @@ function validateClarificationAnswer(value: unknown): ClarificationAnswer {
     throw new DraftValidationError("clarification-answer-shape");
   }
 
-  const { questionId, answer } = value;
+  const { questionId, question, reason, answer } = value;
   if (typeof questionId !== "string" || !questionId.trim()) {
     throw new DraftValidationError("clarification-answer-question-id");
+  }
+  if (typeof question !== "string" || !question.trim()) {
+    throw new DraftValidationError("clarification-answer-question");
+  }
+  if (typeof reason !== "string" || !reason.trim()) {
+    throw new DraftValidationError("clarification-answer-reason");
   }
   if (typeof answer !== "string" || !answer.trim()) {
     throw new DraftValidationError("clarification-answer-answer");
@@ -221,6 +229,8 @@ function validateClarificationAnswer(value: unknown): ClarificationAnswer {
 
   return {
     questionId: questionId.trim(),
+    question: question.trim(),
+    reason: reason.trim(),
     answer: answer.trim()
   };
 }

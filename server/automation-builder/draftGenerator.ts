@@ -5,8 +5,13 @@ import {
   nodeTypes
 } from "../../shared/automationDraft.js";
 import type { ApiErrorDiagnostics } from "../../shared/apiResponses.js";
-import { DraftValidationError, validateDraftAutomationCreationResultShape } from "../../shared/draftValidation.js";
+import {
+  DraftValidationError,
+  validateDraftAutomationCreationResultShape
+} from "../../shared/draftValidation.js";
+import type { DraftValidationStage } from "../../shared/draftValidation.js";
 import { requestOpenRouterStructuredOutput } from "../llm/openRouterStructuredOutput.js";
+import type { OpenRouterStructuredOutputResult } from "../llm/openRouterStructuredOutput.js";
 
 const LLM_REQUEST_TIMEOUT_MS = 90_000;
 const INVALID_LLM_RESPONSE_MESSAGE =
@@ -147,12 +152,29 @@ const DRAFT_AUTOMATION_CREATION_RESULT_SCHEMA = {
   }
 } as const;
 
+const DRAFT_AUTOMATION_REPAIR_SCHEMA_SUMMARY = {
+  allowedStatuses: ["needs_clarification", "draft_created"],
+  allowedNodeTypes: nodeTypes,
+  resultRules: [
+    "needs_clarification requires draft null and one or more Clarification Questions",
+    "draft_created requires a complete Draft Automation and questions []",
+    "Clarification Questions require id, question, and reason",
+    "Draft steps require title, nodeType, description, and details",
+    "Draft Step Details require inputs, outputs, fallbacks, and verification arrays"
+  ]
+} as const;
+
 export interface DraftAutomationCreationConfig {
   apiKey?: string;
   model?: string;
   baseUrl?: string;
   fetchImpl?: typeof fetch;
 }
+
+type ConfiguredDraftAutomationCreationConfig = DraftAutomationCreationConfig & {
+  apiKey: string;
+  model: string;
+};
 
 export interface DraftAutomationCreationContext {
   savedAutomationContext?: SavedAutomationCandidate;
@@ -191,81 +213,60 @@ export async function createDraftAutomationCreationResult(
       "Set OPENROUTER_API_KEY and OPENROUTER_MODEL before generating draft automations."
     );
   }
-
-  const result = await requestOpenRouterStructuredOutput({
+  const llmConfig: ConfiguredDraftAutomationCreationConfig = {
     apiKey: config.apiKey,
     model: config.model,
     baseUrl: config.baseUrl,
-    fetchImpl: config.fetchImpl,
+    fetchImpl: config.fetchImpl
+  };
+
+  const messages = [
+    {
+      role: "system" as const,
+      content: systemPromptFor(context)
+    },
+    {
+      role: "user" as const,
+      content: JSON.stringify({
+        workflowPrompt: trimmedPrompt,
+        clarificationAnswers,
+        ...(context.savedAutomationContext
+          ? { savedAutomationContext: draftContextForModel(context.savedAutomationContext) }
+          : {}),
+        v1ExecutionBlockers: [
+          "specific app, file, spreadsheet, or website",
+          "spreadsheet sheet, tab, range, column, or metric location",
+          "sender account or application identity",
+          "recipients or team destination",
+          "schedule time and time zone",
+          "external side-effect target"
+        ]
+      })
+    }
+  ];
+
+  const result = await requestOpenRouterStructuredOutput({
+    apiKey: llmConfig.apiKey,
+    model: llmConfig.model,
+    baseUrl: llmConfig.baseUrl,
+    fetchImpl: llmConfig.fetchImpl,
     schema: DRAFT_AUTOMATION_CREATION_RESULT_SCHEMA,
-    messages: [
-      {
-        role: "system",
-        content: systemPromptFor(context)
-      },
-      {
-        role: "user",
-        content: JSON.stringify({
-          workflowPrompt: trimmedPrompt,
-          clarificationAnswers,
-          ...(context.savedAutomationContext
-            ? { savedAutomationContext: draftContextForModel(context.savedAutomationContext) }
-            : {}),
-          v1ExecutionBlockers: [
-            "specific app, file, spreadsheet, or website",
-            "spreadsheet sheet, tab, range, column, or metric location",
-            "sender account or application identity",
-            "recipients or team destination",
-            "schedule time and time zone",
-            "external side-effect target"
-          ]
-        })
-      }
-    ],
+    messages,
     temperature: 0.2,
     timeoutMs: LLM_REQUEST_TIMEOUT_MS,
     providerErrorFallback: "The configured draft automation creator rejected the request."
   });
 
   if (!result.ok) {
-    if (result.kind === "provider") {
-      throw new DraftAutomationCreationError(
-        "LLM_REQUEST_FAILED",
-        result.message,
-        502,
-        providerDiagnostics(config.model, result.providerStatus)
-      );
-    }
-
-    if (result.kind === "timeout") {
-      throw new DraftAutomationCreationError(
-        "LLM_REQUEST_TIMEOUT",
-        "The configured draft automation creator took too long to respond. Try again or choose a faster OpenRouter model.",
-        504
-      );
-    }
-
-    if (result.kind === "invalid_json") {
-      throw invalidResponseError(
-        config.model,
-        result.stage ?? "assistant-json",
-        result.providerStatus ?? 200
-      );
-    }
-
-    throw new DraftAutomationCreationError(
-      "LLM_REQUEST_FAILED",
-      "AutoM8 could not reach the configured draft automation creator.",
-      502
-    );
+    throw structuredOutputFailureError(result, llmConfig.model);
   }
 
-  return validateCreationResult(result.parsedJson, config.model, result.providerStatus);
+  return validateOrRepairCreationResult(result.parsedJson, llmConfig);
 }
 
 function systemPromptFor(context: DraftAutomationCreationContext): string {
   const basePrompt =
-    "You create Draft Automation Creation Results for AutoM8. Return only JSON that matches the schema. If execution-critical details are missing, return status needs_clarification with draft null and specific Clarification Questions. Do not guess file names, spreadsheet tabs or ranges, app names, websites, sender accounts, recipients, schedules, time zones, or side-effect targets. These missing facts are Execution Blockers. When all Execution Blockers are answered, return status draft_created with questions [] and a Draft Automation whose steps include Draft Step Details for inputs, outputs, fallbacks, and verification. nodeType must be one of deterministic, perception, llm, control, verification.";
+    "You create Draft Automation Creation Results for AutoM8. Return only JSON that matches the schema. If execution-critical details are missing, return status needs_clarification with draft null and specific Clarification Questions. Do not guess file names, spreadsheet tabs or ranges, app names, websites, sender accounts, recipients, schedules, time zones, or side-effect targets. These missing facts are Execution Blockers. Clarification Answers include questionId, question, reason, and answer. Treat each Clarification Answer as context for an answered Execution Blocker. When an answer resolves a blocker, incorporate that fact into the relevant Draft Step Details. If an answer is insufficient, ask a new specific Clarification Question that names the remaining missing fact instead of repeating a generic blocker. When all Execution Blockers are answered, return status draft_created with questions [] and a Draft Automation whose steps include Draft Step Details for inputs, outputs, fallbacks, and verification. nodeType must be one of deterministic, perception, llm, control, verification.";
 
   if (!context.savedAutomationContext) {
     return basePrompt;
@@ -282,16 +283,105 @@ function draftContextForModel(savedAutomation: SavedAutomationCandidate) {
   };
 }
 
-function validateCreationResult(value: unknown, model: string, providerStatus: number): DraftAutomationCreationResult {
+async function validateOrRepairCreationResult(
+  value: unknown,
+  config: ConfiguredDraftAutomationCreationConfig
+): Promise<DraftAutomationCreationResult> {
+  const validation = validateCreationResult(value);
+  if (validation.ok) {
+    return validation.result;
+  }
+
+  const repairResult = await requestOpenRouterStructuredOutput({
+    apiKey: config.apiKey,
+    model: config.model,
+    baseUrl: config.baseUrl,
+    fetchImpl: config.fetchImpl,
+    schema: DRAFT_AUTOMATION_CREATION_RESULT_SCHEMA,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You repair AutoM8 Draft Automation Creation Result JSON. Return corrected JSON only. The corrected JSON must match the schema and preserve the user's automation intent where possible."
+      },
+      {
+        role: "user",
+        content: JSON.stringify({
+          invalidStage: validation.stage,
+          allowedSchemaSummary: DRAFT_AUTOMATION_REPAIR_SCHEMA_SUMMARY,
+          priorParsedJson: value
+        })
+      }
+    ],
+    temperature: 0,
+    timeoutMs: LLM_REQUEST_TIMEOUT_MS,
+    providerErrorFallback: "The configured draft automation creator rejected the repair request."
+  });
+
+  if (!repairResult.ok) {
+    throw structuredOutputFailureError(repairResult, config.model);
+  }
+
+  const repairValidation = validateCreationResult(repairResult.parsedJson);
+  if (repairValidation.ok) {
+    return repairValidation.result;
+  }
+
+  throw invalidResponseError(config.model, repairValidation.stage, repairResult.providerStatus);
+}
+
+function validateCreationResult(
+  value: unknown
+):
+  | {
+      ok: true;
+      result: DraftAutomationCreationResult;
+    }
+  | {
+      ok: false;
+      stage: DraftValidationStage;
+    } {
   try {
-    return validateDraftAutomationCreationResultShape(value);
+    return { ok: true, result: validateDraftAutomationCreationResultShape(value) };
   } catch (error) {
     if (error instanceof DraftValidationError) {
-      throw invalidResponseError(model, error.stage, providerStatus);
+      return { ok: false, stage: error.stage };
     }
 
     throw error;
   }
+}
+
+function structuredOutputFailureError(
+  result: Exclude<OpenRouterStructuredOutputResult, { ok: true }>,
+  model: string
+): DraftAutomationCreationError {
+  if (result.kind === "provider") {
+    return new DraftAutomationCreationError(
+      "LLM_REQUEST_FAILED",
+      result.message,
+      502,
+      providerDiagnostics(model, result.providerStatus)
+    );
+  }
+
+  if (result.kind === "timeout") {
+    return new DraftAutomationCreationError(
+      "LLM_REQUEST_TIMEOUT",
+      "The configured draft automation creator took too long to respond. Try again or choose a faster OpenRouter model.",
+      504
+    );
+  }
+
+  if (result.kind === "invalid_json") {
+    return invalidResponseError(model, result.stage ?? "assistant-json", result.providerStatus ?? 200);
+  }
+
+  return new DraftAutomationCreationError(
+    "LLM_REQUEST_FAILED",
+    "AutoM8 could not reach the configured draft automation creator.",
+    502
+  );
 }
 
 function invalidResponseError(

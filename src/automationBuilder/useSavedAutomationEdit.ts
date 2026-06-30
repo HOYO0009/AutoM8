@@ -25,6 +25,8 @@ export function useSavedAutomationEdit({
     return editClarificationQuestions
       .map((question) => ({
         questionId: question.id,
+        question: question.question,
+        reason: question.reason,
         answer: editClarificationAnswerText[question.id]?.trim() ?? ""
       }))
       .filter((answer) => answer.answer.length > 0);

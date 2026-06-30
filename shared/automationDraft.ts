@@ -36,6 +36,8 @@ export interface ClarificationQuestion {
 
 export interface ClarificationAnswer {
   questionId: string;
+  question: string;
+  reason: string;
   answer: string;
 }
 

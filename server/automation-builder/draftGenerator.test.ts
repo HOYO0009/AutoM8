@@ -156,10 +156,30 @@ describe("createDraftAutomationCreationResult", () => {
     );
 
     const clarificationAnswers = [
-      { questionId: "sales-spreadsheet", answer: "C:/Reports/Sales.xlsx" },
-      { questionId: "revenue-location", answer: "Daily Revenue tab, Date and Total Revenue columns" },
-      { questionId: "sender-account", answer: "sales@example.com" },
-      { questionId: "email-recipients", answer: "team@example.com" }
+      {
+        questionId: "sales-spreadsheet",
+        question: "Which sales spreadsheet should AutoM8 open?",
+        reason: "The workflow names a spreadsheet but not the exact source.",
+        answer: "C:/Reports/Sales.xlsx"
+      },
+      {
+        questionId: "revenue-location",
+        question: "Where is yesterday's total revenue in the spreadsheet?",
+        reason: "AutoM8 needs the exact tab and columns before modeling extraction.",
+        answer: "Daily Revenue tab, Date and Total Revenue columns"
+      },
+      {
+        questionId: "sender-account",
+        question: "Which sender account should AutoM8 use?",
+        reason: "AutoM8 needs the sender identity before drafting the email.",
+        answer: "sales@example.com"
+      },
+      {
+        questionId: "email-recipients",
+        question: "Who should receive the team email summary?",
+        reason: "Draft Automation Creation needs a concrete destination before modeling the email step.",
+        answer: "team@example.com"
+      }
     ];
 
     const creationResult = await createDraftAutomationCreationResult(
@@ -178,7 +198,9 @@ describe("createDraftAutomationCreationResult", () => {
     expect(creationResult.draft?.steps[2].details.verification).toEqual([
       "Email draft contains the revenue value and remains unsent"
     ]);
-    expect(JSON.parse(requestBodyFor(fetchImpl).messages[1].content).clarificationAnswers).toEqual(clarificationAnswers);
+    const requestBody = requestBodyFor(fetchImpl);
+    expect(requestBody.messages[0].content).toContain("Clarification Answers include questionId, question, reason, and answer");
+    expect(JSON.parse(requestBody.messages[1].content).clarificationAnswers).toEqual(clarificationAnswers);
   });
 
   it("includes saved automation context when creating an edited Draft Automation", async () => {
@@ -243,10 +265,18 @@ describe("createDraftAutomationCreationResult", () => {
         }
       ]
     };
+    const clarificationAnswers = [
+      {
+        questionId: "slack-channel",
+        question: "Which Slack channel should AutoM8 use?",
+        reason: "The edit asks for Slack without a concrete destination.",
+        answer: "#revenue"
+      }
+    ];
 
     const creationResult = await createDraftAutomationCreationResult(
       "Also post the summary to #revenue in Slack.",
-      [],
+      clarificationAnswers,
       {
         apiKey: "test-key",
         model: "test-model",
@@ -263,6 +293,7 @@ describe("createDraftAutomationCreationResult", () => {
       summary: "Collect yesterday's revenue and draft a team email.",
       steps: savedAutomationContext.steps
     });
+    expect(JSON.parse(requestBody.messages[1].content).clarificationAnswers).toEqual(clarificationAnswers);
   });
 
   it("surfaces provider rejection messages", async () => {
@@ -342,26 +373,122 @@ describe("createDraftAutomationCreationResult", () => {
       stage: "assistant-json",
       providerStatus: 200
     });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
     warnSpy.mockRestore();
   });
 
-  it("reports invalid creation result shape with safe diagnostics", async () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
-      jsonResponse({
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({
-                status: "draft_created",
-                draft: null,
-                questions: []
-              })
+  it("repairs an invalid creation result status once", async () => {
+    const priorParsedJson = {
+      status: "done",
+      draft: null,
+      questions: []
+    };
+    const fetchImpl = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify(priorParsedJson)
+              }
             }
-          }
-        ]
-      })
-    );
+          ]
+        })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  status: "needs_clarification",
+                  draft: null,
+                  questions: [
+                    {
+                      id: "target-app",
+                      question: "Which app should AutoM8 open?",
+                      reason: "The workflow names an action but not the exact app."
+                    }
+                  ]
+                })
+              }
+            }
+          ]
+        })
+      );
+
+    const creationResult = await createDraftAutomationCreationResult("Open the app and type hello", [], {
+      apiKey: "test-key",
+      model: "openrouter/free",
+      fetchImpl
+    });
+
+    expect(creationResult).toEqual({
+      status: "needs_clarification",
+      draft: null,
+      questions: [
+        {
+          id: "target-app",
+          question: "Which app should AutoM8 open?",
+          reason: "The workflow names an action but not the exact app."
+        }
+      ]
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+
+    const repairBody = requestBodyFor(fetchImpl, 1);
+    const repairPayload = JSON.parse(repairBody.messages[1].content);
+    expect(repairBody.messages[0].content).toContain("Return corrected JSON only");
+    expect(repairPayload.invalidStage).toBe("creation-result-status");
+    expect(repairPayload.allowedSchemaSummary.allowedStatuses).toEqual([
+      "needs_clarification",
+      "draft_created"
+    ]);
+    expect(repairPayload.allowedSchemaSummary.allowedNodeTypes).toEqual([
+      "deterministic",
+      "perception",
+      "llm",
+      "control",
+      "verification"
+    ]);
+    expect(repairPayload.priorParsedJson).toEqual(priorParsedJson);
+    expect(repairBody.response_format.type).toBe("json_schema");
+    expect(repairBody.response_format.json_schema.strict).toBe(true);
+  });
+
+  it("reports invalid creation result shape with safe diagnostics after repair fails", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const fetchImpl = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  status: "done",
+                  draft: null,
+                  questions: []
+                })
+              }
+            }
+          ]
+        })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  status: "draft_created",
+                  draft: null,
+                  questions: []
+                })
+              }
+            }
+          ]
+        })
+      );
 
     await expect(
       createDraftAutomationCreationResult("Open Notepad and type hello", [], {
@@ -385,6 +512,7 @@ describe("createDraftAutomationCreationResult", () => {
       stage: "creation-result-draft",
       providerStatus: 200
     });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
     warnSpy.mockRestore();
   });
 
@@ -429,7 +557,7 @@ function jsonResponse(body: unknown, init?: ResponseInit): Response {
   });
 }
 
-function requestBodyFor(fetchImpl: ReturnType<typeof vi.fn>): {
+function requestBodyFor(fetchImpl: ReturnType<typeof vi.fn>, callIndex = 0): {
   provider: { require_parameters: boolean };
   messages: { content: string }[];
   response_format: {
@@ -444,5 +572,5 @@ function requestBodyFor(fetchImpl: ReturnType<typeof vi.fn>): {
     };
   };
 } {
-  return JSON.parse(fetchImpl.mock.calls[0][1]?.body as string);
+  return JSON.parse(fetchImpl.mock.calls[callIndex][1]?.body as string);
 }

@@ -183,12 +183,16 @@ describe("validateClarificationAnswersShape", () => {
       validateClarificationAnswersShape([
         {
           questionId: "  sales-spreadsheet  ",
+          question: "  Which sales spreadsheet should AutoM8 open?  ",
+          reason: "  AutoM8 needs the exact source before it can create a runnable draft.  ",
           answer: "  C:/Reports/sales.xlsx  "
         }
       ])
     ).toEqual([
       {
         questionId: "sales-spreadsheet",
+        question: "Which sales spreadsheet should AutoM8 open?",
+        reason: "AutoM8 needs the exact source before it can create a runnable draft.",
         answer: "C:/Reports/sales.xlsx"
       }
     ]);
@@ -199,10 +203,43 @@ describe("validateClarificationAnswersShape", () => {
       validateClarificationAnswersShape([
         {
           questionId: "sales-spreadsheet",
+          question: "Which sales spreadsheet should AutoM8 open?",
+          reason: "AutoM8 needs the exact source before it can create a runnable draft.",
           answer: " "
         }
       ])
     ).toThrow(expect.objectContaining({ stage: "clarification-answer-answer" }));
+  });
+
+  it("rejects malformed Clarification Answer continuations", () => {
+    expect(() =>
+      validateClarificationAnswersShape([
+        {
+          questionId: "sales-spreadsheet",
+          reason: "AutoM8 needs the exact source before it can create a runnable draft.",
+          answer: "C:/Reports/sales.xlsx"
+        }
+      ])
+    ).toThrow(expect.objectContaining({ stage: "clarification-answer-question" }));
+
+    expect(() =>
+      validateClarificationAnswersShape([
+        {
+          questionId: "sales-spreadsheet",
+          question: "Which sales spreadsheet should AutoM8 open?",
+          answer: "C:/Reports/sales.xlsx"
+        }
+      ])
+    ).toThrow(expect.objectContaining({ stage: "clarification-answer-reason" }));
+
+    expect(() =>
+      validateClarificationAnswersShape([
+        {
+          questionId: "sales-spreadsheet",
+          answer: "C:/Reports/sales.xlsx"
+        }
+      ])
+    ).toThrow(expect.objectContaining({ stage: "clarification-answer-question" }));
   });
 });
 

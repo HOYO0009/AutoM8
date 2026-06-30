@@ -73,7 +73,12 @@ describe("autom8Api saved automation editing", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await createSavedAutomationEditDraft("saved 1", "Also post this to Slack.", [
-      { questionId: "team", answer: "Revenue team" }
+      {
+        questionId: "team",
+        question: "Which team should receive the Slack update?",
+        reason: "The edit mentions a team but not a concrete destination.",
+        answer: "Revenue team"
+      }
     ]);
 
     expect(result.status).toBe("needs_clarification");
@@ -83,7 +88,14 @@ describe("autom8Api saved automation editing", () => {
         method: "POST",
         body: JSON.stringify({
           prompt: "Also post this to Slack.",
-          clarificationAnswers: [{ questionId: "team", answer: "Revenue team" }]
+          clarificationAnswers: [
+            {
+              questionId: "team",
+              question: "Which team should receive the Slack update?",
+              reason: "The edit mentions a team but not a concrete destination.",
+              answer: "Revenue team"
+            }
+          ]
         })
       })
     );
