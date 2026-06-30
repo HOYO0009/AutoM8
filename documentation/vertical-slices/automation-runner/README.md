@@ -1,5 +1,15 @@
 # Automation Runner
 
+Purpose:
+Summarize integrated Automation Runner behavior across saved automation execution, approval gates, and non-deterministic desktop tasks.
+
+Status: In progress
+
+Integrated slices:
+- `run-saved-automation.md`
+- `approval-gated-run-actions.md`
+- `run-nondeterministic-desktop-task.md`
+
 Integrated behavior:
 - Given a user has saved an automation candidate
 - When they start a run

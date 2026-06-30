@@ -1,6 +1,14 @@
 # Automation Builder
 
+Purpose:
+Summarize integrated Automation Builder behavior across prompt-based draft creation, saved automation candidates, and prompt-based edits.
+
 Status: In progress
+
+Integrated slices:
+- `prompt-to-draft-automation.md`
+- `save-draft-automation.md`
+- `edit-saved-automation-with-prompt.md`
 
 Integrated behavior:
 - Given a user describes a desktop workflow in the Automation Builder
