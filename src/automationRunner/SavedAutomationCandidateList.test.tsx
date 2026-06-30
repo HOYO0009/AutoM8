@@ -1,7 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { AutomationRun, DraftStepDetails, SavedAutomationCandidate } from "../../shared/draftAutomation";
+import { DraftStepDetails, SavedAutomationCandidate } from "../../shared/automationDraft";
+import { AutomationRun } from "../../shared/automationRun";
 import { SavedAutomationCandidateDetail } from "./SavedAutomationCandidateDetail";
 import { SavedAutomationCandidateList } from "./SavedAutomationCandidateList";
 

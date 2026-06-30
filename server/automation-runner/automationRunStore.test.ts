@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { DraftAutomationStep, ExecutableActionPlan, SavedAutomationCandidate } from "../../shared/draftAutomation.js";
+import { DraftAutomationStep, SavedAutomationCandidate } from "../../shared/automationDraft.js";
+import { ExecutableActionPlan } from "../../shared/automationRun.js";
 import { NonDeterministicDesktopTaskRunner } from "./nonDeterministicDesktopTaskRunner.js";
 import { DesktopDriver } from "../desktop/desktopDriver.js";
 import { createAutomationRunManager, RunAutomationError } from "./automationRunStore.js";

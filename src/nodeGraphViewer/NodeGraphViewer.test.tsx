@@ -1,7 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { AutomationRun, DraftAutomation, DraftStepDetails } from "../../shared/draftAutomation";
+import { DraftAutomation, DraftStepDetails } from "../../shared/automationDraft";
+import { AutomationRun } from "../../shared/automationRun";
 import { NodeGraphViewer } from "./NodeGraphViewer";
 
 describe("NodeGraphViewer", () => {

@@ -1,6 +1,6 @@
 import { CheckCircle2, LoaderCircle, XCircle } from "lucide-react";
 
-import { AutomationRun } from "../../shared/draftAutomation";
+import { AutomationRun } from "../../shared/automationRun";
 import { ApprovalControls } from "./ApprovalControls";
 import { formatStatus } from "./formatStatus";
 

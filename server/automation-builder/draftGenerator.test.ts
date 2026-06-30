@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { SavedAutomationCandidate } from "../../shared/draftAutomation.js";
+import { SavedAutomationCandidate } from "../../shared/automationDraft.js";
 import { createDraftAutomationCreationResult } from "./draftGenerator.js";
 
 describe("createDraftAutomationCreationResult", () => {

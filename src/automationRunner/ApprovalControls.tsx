@@ -1,6 +1,6 @@
 import { ShieldCheck } from "lucide-react";
 
-import { AutomationApproval } from "../../shared/draftAutomation";
+import { AutomationApproval } from "../../shared/automationRun";
 
 export function ApprovalControls({
   runId,

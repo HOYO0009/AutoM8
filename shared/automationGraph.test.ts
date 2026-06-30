@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { createAutomationGraph } from "./automationGraph.js";
-import { AutomationRun, DraftAutomation, DraftStepDetails } from "./draftAutomation.js";
+import { DraftAutomation, DraftStepDetails } from "./automationDraft.js";
+import { AutomationRun } from "./automationRun.js";
 
 describe("createAutomationGraph", () => {
   it("projects draft automation steps into inspectable graph nodes", () => {

@@ -1,7 +1,9 @@
 import { CheckCircle2, CircleDashed, GitBranch, LoaderCircle, XCircle } from "lucide-react";
 import { useMemo } from "react";
 
-import { AutomationRun, DraftAutomation, createAutomationGraph } from "../../shared/draftAutomation";
+import { DraftAutomation } from "../../shared/automationDraft";
+import { createAutomationGraph } from "../../shared/automationGraph";
+import { AutomationRun } from "../../shared/automationRun";
 
 export function NodeGraphViewer({
   automation,

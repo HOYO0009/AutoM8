@@ -1,4 +1,4 @@
-import { ExecutableAction } from "../../shared/draftAutomation.js";
+import { ExecutableAction } from "../../shared/executableAction.js";
 import { DesktopDriver, DesktopObservation } from "../desktop/desktopDriver.js";
 import {
   isNonDeterministicDesktopTaskAction,

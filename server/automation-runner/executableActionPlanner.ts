@@ -1,10 +1,9 @@
 import {
   DraftAutomation,
-  ExecutableAction,
-  ExecutableActionPlan,
-  ExecutableActionPlanStep,
   SavedAutomationCandidate
-} from "../../shared/draftAutomation.js";
+} from "../../shared/automationDraft.js";
+import { ExecutableAction } from "../../shared/executableAction.js";
+import { ExecutableActionPlan, ExecutableActionPlanStep } from "../../shared/automationRun.js";
 import { isDraftNodeType } from "../../shared/draftValidation.js";
 import {
   EXECUTABLE_ACTION_PLAN_SCHEMA,

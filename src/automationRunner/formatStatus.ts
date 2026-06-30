@@ -1,4 +1,4 @@
-import { AutomationRun } from "../../shared/draftAutomation";
+import { AutomationRun } from "../../shared/automationRun";
 
 export function formatStatus(status: AutomationRun["status"]): string {
   return status

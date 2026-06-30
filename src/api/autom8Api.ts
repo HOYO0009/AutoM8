@@ -1,18 +1,20 @@
 import {
   ApiErrorResponse,
-  AutomationRun,
   AutomationRunResponse,
   AutomationRunsResponse,
-  ClarificationAnswer,
-  DraftAutomation,
-  DraftAutomationCreationResult,
   DraftAutomationCreationResponse,
   ReplaceSavedAutomationCandidateResponse,
   RunAutomationResponse,
-  SavedAutomationCandidate,
   SavedAutomationCandidatesResponse,
   SaveDraftAutomationCandidateResponse
-} from "../../shared/draftAutomation";
+} from "../../shared/apiResponses";
+import {
+  ClarificationAnswer,
+  DraftAutomation,
+  DraftAutomationCreationResult,
+  SavedAutomationCandidate
+} from "../../shared/automationDraft";
+import { AutomationRun } from "../../shared/automationRun";
 
 export class ApiClientError extends Error {
   constructor(message: string) {

@@ -1,7 +1,7 @@
 import { LoaderCircle, Sparkles } from "lucide-react";
 import { FormEvent } from "react";
 
-import { ClarificationQuestion } from "../../shared/draftAutomation";
+import { ClarificationQuestion } from "../../shared/automationDraft";
 
 export function ClarificationPanel({
   questions,

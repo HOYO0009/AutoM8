@@ -3,7 +3,7 @@ import {
   DraftAutomationCreationResult,
   SavedAutomationCandidate,
   nodeTypes
-} from "../../shared/draftAutomation.js";
+} from "../../shared/automationDraft.js";
 import { DraftValidationError, validateDraftAutomationCreationResultShape } from "../../shared/draftValidation.js";
 import { requestOpenRouterStructuredOutput } from "../llm/openRouterStructuredOutput.js";
 

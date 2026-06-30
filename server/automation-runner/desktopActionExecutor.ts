@@ -1,4 +1,4 @@
-import { ExecutableAction } from "../../shared/draftAutomation.js";
+import { ExecutableAction } from "../../shared/executableAction.js";
 import { DesktopDriver } from "../desktop/desktopDriver.js";
 
 export async function executeDesktopAction(driver: DesktopDriver, action: ExecutableAction): Promise<string> {

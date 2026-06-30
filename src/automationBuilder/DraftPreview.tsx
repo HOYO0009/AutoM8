@@ -1,6 +1,6 @@
 import { AlertCircle, CheckCircle2, LoaderCircle, Save } from "lucide-react";
 
-import { DraftAutomation } from "../../shared/draftAutomation";
+import { DraftAutomation } from "../../shared/automationDraft";
 import { NodeGraphViewer } from "../nodeGraphViewer/NodeGraphViewer";
 
 export function DraftPreview({

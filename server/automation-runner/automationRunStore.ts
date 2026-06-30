@@ -4,9 +4,9 @@ import {
   AutomationRun,
   AutomationRunLog,
   AutomationStepRun,
-  ExecutableActionPlan,
-  SavedAutomationCandidate
-} from "../../shared/draftAutomation.js";
+  ExecutableActionPlan
+} from "../../shared/automationRun.js";
+import { SavedAutomationCandidate } from "../../shared/automationDraft.js";
 import { NonDeterministicDesktopTaskRunner } from "./nonDeterministicDesktopTaskRunner.js";
 import { DesktopDriver } from "../desktop/desktopDriver.js";
 import { actionRequiresApproval, ExecutableActionPlanner } from "./executableActionPlanner.js";

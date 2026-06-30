@@ -1,4 +1,5 @@
-import { AutomationApproval, ExecutableAction } from "../../shared/draftAutomation.js";
+import { AutomationApproval } from "../../shared/automationRun.js";
+import { ExecutableAction } from "../../shared/executableAction.js";
 
 export function createAutomationApproval({
   id,

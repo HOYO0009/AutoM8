@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { DraftValidationError, cloneSavedAutomationCandidate, validateDraftAutomationShape } from "../../shared/draftValidation.js";
-import { SavedAutomationCandidate } from "../../shared/draftAutomation.js";
+import { SavedAutomationCandidate } from "../../shared/automationDraft.js";
 
 export class SaveAutomationCandidateError extends Error {
   constructor(

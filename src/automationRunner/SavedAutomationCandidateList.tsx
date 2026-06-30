@@ -1,6 +1,7 @@
 import { Plus } from "lucide-react";
 
-import { AutomationRun, SavedAutomationCandidate } from "../../shared/draftAutomation";
+import { SavedAutomationCandidate } from "../../shared/automationDraft";
+import { AutomationRun } from "../../shared/automationRun";
 import { formatStatus } from "./formatStatus";
 
 export function SavedAutomationCandidateList({
