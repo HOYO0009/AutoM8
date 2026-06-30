@@ -11,7 +11,7 @@
 
 ## In Progress
 
-- [ ] Automation Builder / Clarification-gated Draft Automation Creation: block incomplete drafts with Clarification Questions before creating a Draft Automation.
+- [ ] None.
 
 ## Module Integrations
 
@@ -20,6 +20,7 @@
 ## Completed
 
 - [x] Documentation foundation.
+- [x] Automation Builder / Clarification-gated Draft Automation Creation: block incomplete drafts with Clarification Questions before creating a Draft Automation.
 - [x] Automation Builder / Save draft automation: save a generated draft as an in-memory automation candidate.
 - [x] Automation Builder / Edit saved automation with prompt: use a saved automation as context, preview a complete edited draft, and replace the saved candidate in place.
 - [x] Automation Runner / Run deterministic saved automation: execute concrete saved actions through the Windows desktop driver and show step evidence.
