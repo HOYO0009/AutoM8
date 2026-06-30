@@ -136,6 +136,41 @@ describe("createNonDeterministicDesktopTaskRunner", () => {
     expect(driver.wait).toHaveBeenCalledTimes(2);
     expect(result.logs.filter((log) => log.startsWith("Observation "))).toHaveLength(2);
   });
+
+  it("reports timed out model action requests", async () => {
+    vi.useFakeTimers();
+
+    try {
+      const fetchImpl = vi.fn<typeof fetch>(
+        (_input, init) =>
+          new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () => {
+              reject(new DOMException("Aborted", "AbortError"));
+            });
+          })
+      );
+      const executor = createNonDeterministicDesktopTaskRunner(mockDriver(), {
+        apiKey: "key",
+        model: "vision-model",
+        fetchImpl
+      });
+
+      const resultPromise = executor.runNonDeterministicDesktopTask({
+        type: "llm_desktop_task",
+        goal: "Open the target",
+        maxIterations: 1,
+        timeoutMs: 120_000
+      });
+
+      await vi.advanceTimersByTimeAsync(90_000);
+      await expect(resultPromise).resolves.toMatchObject({
+        status: "failed",
+        message: "The model took too long to choose the next desktop action."
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 function mockDriver(overrides: Partial<DesktopDriver> = {}): DesktopDriver & {

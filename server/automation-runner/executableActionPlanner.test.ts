@@ -103,6 +103,61 @@ describe("createExecutableActionPlanner", () => {
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(plan.steps[0].actions).toContainEqual({ type: "type_text", text: "hello" });
   });
+
+  it("falls back after timed out model planning requests", async () => {
+    vi.useFakeTimers();
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    try {
+      const fetchImpl = vi.fn<typeof fetch>(
+        (_input, init) =>
+          new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () => {
+              reject(new DOMException("Aborted", "AbortError"));
+            });
+          })
+      );
+      const planner = createExecutableActionPlanner({
+        apiKey: "key",
+        model: "model",
+        fetchImpl
+      });
+
+      const planPromise = planner.createPlan(
+        savedAutomationCandidate({
+          steps: [
+            {
+              title: "Find target",
+              nodeType: "perception",
+              description: "Find the visible target and open it.",
+              details: draftStepDetails()
+            }
+          ]
+        })
+      );
+
+      await vi.advanceTimersByTimeAsync(90_000);
+      await expect(planPromise).resolves.toMatchObject({
+        steps: [
+          {
+            actions: [
+              {
+                type: "llm_desktop_task",
+                goal: "Morning workflow: Find target. Find the visible target and open it."
+              }
+            ]
+          }
+        ]
+      });
+      expect(warnSpy).toHaveBeenCalledWith(
+        "AutoM8 executable action planner fell back to the local heuristic planner.",
+        expect.objectContaining({ error: "The configured executable action planner took too long to respond." })
+      );
+    } finally {
+      warnSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe("validateExecutableActionPlan", () => {

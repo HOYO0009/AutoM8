@@ -7,7 +7,7 @@ import {
 } from "./executableActionRegistry.js";
 import { requestOpenRouterStructuredOutput } from "../llm/openRouterStructuredOutput.js";
 
-const NON_DETERMINISTIC_TASK_REQUEST_TIMEOUT_MS = 30_000;
+const NON_DETERMINISTIC_TASK_REQUEST_TIMEOUT_MS = 90_000;
 
 export interface NonDeterministicDesktopTaskRunnerConfig {
   apiKey?: string;

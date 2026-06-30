@@ -7,7 +7,7 @@ import {
 import { DraftValidationError, validateDraftAutomationCreationResultShape } from "../../shared/draftValidation.js";
 import { requestOpenRouterStructuredOutput } from "../llm/openRouterStructuredOutput.js";
 
-const LLM_REQUEST_TIMEOUT_MS = 30_000;
+const LLM_REQUEST_TIMEOUT_MS = 90_000;
 const INVALID_LLM_RESPONSE_MESSAGE =
   "The configured draft automation creator did not return the required creation result shape. Choose an OpenRouter model that supports structured outputs, then try again.";
 

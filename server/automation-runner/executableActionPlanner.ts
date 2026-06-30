@@ -13,7 +13,7 @@ import {
 } from "./executableActionRegistry.js";
 import { requestOpenRouterStructuredOutput } from "../llm/openRouterStructuredOutput.js";
 
-const ACTION_PLAN_REQUEST_TIMEOUT_MS = 30_000;
+const ACTION_PLAN_REQUEST_TIMEOUT_MS = 90_000;
 
 export interface ExecutableActionPlannerConfig {
   apiKey?: string;

@@ -382,7 +382,7 @@ describe("createDraftAutomationCreationResult", () => {
           "The configured draft automation creator took too long to respond. Try again or choose a faster OpenRouter model."
       });
 
-      await vi.advanceTimersByTimeAsync(30_000);
+      await vi.advanceTimersByTimeAsync(90_000);
       await expectation;
     } finally {
       vi.useRealTimers();
