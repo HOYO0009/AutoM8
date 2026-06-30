@@ -1,4 +1,5 @@
 import {
+  ApiErrorDiagnostics,
   ApiErrorResponse,
   AutomationRunResponse,
   AutomationRunsResponse,
@@ -17,7 +18,11 @@ import {
 import { AutomationRun } from "../../shared/automationRun";
 
 export class ApiClientError extends Error {
-  constructor(message: string) {
+  constructor(
+    message: string,
+    public readonly code?: string,
+    public readonly diagnostics?: ApiErrorDiagnostics
+  ) {
     super(message);
     this.name = "ApiClientError";
   }
@@ -146,7 +151,8 @@ async function requestJson<T>(path: string, init: RequestInit | undefined, fallb
   const payload = (await response.json()) as T | ApiErrorResponse;
 
   if (!response.ok || isApiErrorResponse(payload)) {
-    throw new ApiClientError(isApiErrorResponse(payload) ? payload.error.message : fallbackMessage);
+    const apiError = isApiErrorResponse(payload) ? payload.error : undefined;
+    throw new ApiClientError(apiError?.message ?? fallbackMessage, apiError?.code, apiError?.diagnostics);
   }
 
   return payload;

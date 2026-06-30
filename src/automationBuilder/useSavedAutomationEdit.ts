@@ -16,7 +16,7 @@ export function useSavedAutomationEdit({
   const [editDraft, setEditDraft] = useState<DraftAutomation | null>(null);
   const [editClarificationQuestions, setEditClarificationQuestions] = useState<ClarificationQuestion[]>([]);
   const [editClarificationAnswerText, setEditClarificationAnswerText] = useState<Record<string, string>>({});
-  const [editError, setEditError] = useState<string | null>(null);
+  const [editError, setEditError] = useState<ApiClientError | null>(null);
   const [isGeneratingEdit, setIsGeneratingEdit] = useState(false);
 
   const trimmedEditPrompt = editPrompt.trim();
@@ -106,8 +106,8 @@ export function useSavedAutomationEdit({
       setEditDraft(null);
       setEditError(
         generationError instanceof ApiClientError
-          ? generationError.message
-          : "AutoM8 could not reach the local saved automation edit API."
+          ? generationError
+          : new ApiClientError("AutoM8 could not reach the local saved automation edit API.")
       );
     } finally {
       setIsGeneratingEdit(false);

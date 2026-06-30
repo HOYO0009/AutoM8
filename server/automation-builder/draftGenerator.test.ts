@@ -270,23 +270,38 @@ describe("createDraftAutomationCreationResult", () => {
       jsonResponse(
         {
           error: {
-            message: "This model does not support response_format json_schema."
+            message: "This model does not support response_format json_schema.",
+            metadata: {
+              rawProviderPayload: "do not expose"
+            }
           }
         },
         { status: 400 }
       )
     );
 
-    await expect(
-      createDraftAutomationCreationResult("Open Notepad and type hello", [], {
+    let rejectedError: unknown;
+    try {
+      await createDraftAutomationCreationResult("Open Notepad and type hello", [], {
         apiKey: "test-key",
-        model: "test-model",
+        model: "openrouter/free",
         fetchImpl
-      })
-    ).rejects.toMatchObject({
+      });
+    } catch (error) {
+      rejectedError = error;
+    }
+
+    expect(rejectedError).toMatchObject({
       code: "LLM_REQUEST_FAILED",
-      message: "This model does not support response_format json_schema."
+      message: "This model does not support response_format json_schema.",
+      diagnostics: {
+        failureType: "provider_rejection",
+        model: "openrouter/free",
+        providerStatus: 400,
+        guidance: expect.stringContaining("OpenRouter rejected")
+      }
     });
+    expect(JSON.stringify(rejectedError)).not.toContain("do not expose");
   });
 
   it("reports invalid provider JSON with actionable guidance", async () => {
@@ -306,17 +321,24 @@ describe("createDraftAutomationCreationResult", () => {
     await expect(
       createDraftAutomationCreationResult("Open Notepad and type hello", [], {
         apiKey: "test-key",
-        model: "test-model",
+        model: "openrouter/free",
         fetchImpl
       })
     ).rejects.toMatchObject({
       code: "INVALID_LLM_RESPONSE",
       message:
-        "The configured draft automation creator did not return the required creation result shape. Choose an OpenRouter model that supports structured outputs, then try again."
+        "The configured draft automation creator did not return the required creation result shape. Choose an OpenRouter model that supports structured outputs, then try again.",
+      diagnostics: {
+        failureType: "invalid_json",
+        model: "openrouter/free",
+        stage: "assistant-json",
+        providerStatus: 200,
+        guidance: expect.stringContaining("not parseable JSON")
+      }
     });
 
     expect(warnSpy).toHaveBeenCalledWith("AutoM8 draft automation creator returned an invalid response.", {
-      model: "test-model",
+      model: "openrouter/free",
       stage: "assistant-json",
       providerStatus: 200
     });
@@ -344,15 +366,22 @@ describe("createDraftAutomationCreationResult", () => {
     await expect(
       createDraftAutomationCreationResult("Open Notepad and type hello", [], {
         apiKey: "test-key",
-        model: "test-model",
+        model: "openrouter/free",
         fetchImpl
       })
     ).rejects.toMatchObject({
-      code: "INVALID_LLM_RESPONSE"
+      code: "INVALID_LLM_RESPONSE",
+      diagnostics: {
+        failureType: "invalid_creation_result_shape",
+        model: "openrouter/free",
+        stage: "creation-result-draft",
+        providerStatus: 200,
+        guidance: expect.stringContaining("did not match AutoM8")
+      }
     });
 
     expect(warnSpy).toHaveBeenCalledWith("AutoM8 draft automation creator returned an invalid response.", {
-      model: "test-model",
+      model: "openrouter/free",
       stage: "creation-result-draft",
       providerStatus: 200
     });

@@ -1,6 +1,53 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createSavedAutomationEditDraft, replaceSavedAutomation } from "./autom8Api";
+import {
+  ApiClientError,
+  createDraftAutomationCreationResult,
+  createSavedAutomationEditDraft,
+  replaceSavedAutomation
+} from "./autom8Api";
+
+describe("autom8Api draft automation creation", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("preserves safe diagnostics from draft creation API errors", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      jsonResponse(
+        {
+          error: {
+            code: "INVALID_LLM_RESPONSE",
+            message:
+              "The configured draft automation creator did not return the required creation result shape.",
+            diagnostics: {
+              failureType: "invalid_json",
+              model: "openrouter/free",
+              stage: "assistant-json",
+              providerStatus: 200,
+              guidance: "The model returned assistant content that was not parseable JSON."
+            }
+          }
+        },
+        { status: 502 }
+      )
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(createDraftAutomationCreationResult("Open Notepad and type hello")).rejects.toMatchObject({
+      name: "ApiClientError",
+      message: "The configured draft automation creator did not return the required creation result shape.",
+      code: "INVALID_LLM_RESPONSE",
+      diagnostics: {
+        failureType: "invalid_json",
+        model: "openrouter/free",
+        stage: "assistant-json",
+        providerStatus: 200,
+        guidance: "The model returned assistant content that was not parseable JSON."
+      }
+    } satisfies Partial<ApiClientError>);
+  });
+});
 
 describe("autom8Api saved automation editing", () => {
   afterEach(() => {

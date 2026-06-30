@@ -19,7 +19,7 @@ export function useDraftAutomationCreation({
   const [draft, setDraft] = useState<DraftAutomation | null>(null);
   const [clarificationQuestions, setClarificationQuestions] = useState<ClarificationQuestion[]>([]);
   const [clarificationAnswerText, setClarificationAnswerText] = useState<Record<string, string>>({});
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ApiClientError | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
   const trimmedPrompt = prompt.trim();
@@ -100,8 +100,8 @@ export function useDraftAutomationCreation({
       setDraft(null);
       setError(
         generationError instanceof ApiClientError
-          ? generationError.message
-          : "AutoM8 could not reach the local draft API."
+          ? generationError
+          : new ApiClientError("AutoM8 could not reach the local draft API.")
       );
     } finally {
       setIsGenerating(false);

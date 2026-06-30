@@ -4,24 +4,34 @@ import { DraftAutomationCreationError } from "./automation-builder/draftGenerato
 import { SaveAutomationCandidateError } from "./automation-builder/savedAutomationCandidateStore.js";
 import { ExecutableActionPlanningError } from "./automation-runner/executableActionPlanner.js";
 import { RunAutomationError } from "./automation-runner/automationRunStore.js";
+import type { ApiErrorDiagnostics } from "../shared/apiResponses.js";
 import { DraftValidationError } from "../shared/draftValidation.js";
 
 export function sendApiError(response: Response, error: unknown): void {
   const apiError = toApiError(error);
+  const errorBody = {
+    code: apiError.code,
+    message: apiError.message,
+    ...(apiError.diagnostics ? { diagnostics: apiError.diagnostics } : {})
+  };
+
   response.status(apiError.status).json({
-    error: {
-      code: apiError.code,
-      message: apiError.message
-    }
+    error: errorBody
   });
 }
 
-function toApiError(error: unknown): { code: string; message: string; status: number } {
+function toApiError(error: unknown): {
+  code: string;
+  message: string;
+  status: number;
+  diagnostics?: ApiErrorDiagnostics;
+} {
   if (error instanceof DraftAutomationCreationError) {
     return {
       code: error.code,
       message: error.message,
-      status: error.status
+      status: error.status,
+      diagnostics: error.diagnostics
     };
   }
 

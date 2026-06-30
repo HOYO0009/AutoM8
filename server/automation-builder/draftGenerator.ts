@@ -4,6 +4,7 @@ import {
   SavedAutomationCandidate,
   nodeTypes
 } from "../../shared/automationDraft.js";
+import type { ApiErrorDiagnostics } from "../../shared/apiResponses.js";
 import { DraftValidationError, validateDraftAutomationCreationResultShape } from "../../shared/draftValidation.js";
 import { requestOpenRouterStructuredOutput } from "../llm/openRouterStructuredOutput.js";
 
@@ -161,7 +162,8 @@ export class DraftAutomationCreationError extends Error {
   constructor(
     public readonly code: string,
     message: string,
-    public readonly status = 400
+    public readonly status = 400,
+    public readonly diagnostics?: ApiErrorDiagnostics
   ) {
     super(message);
     this.name = "DraftAutomationCreationError";
@@ -227,7 +229,12 @@ export async function createDraftAutomationCreationResult(
 
   if (!result.ok) {
     if (result.kind === "provider") {
-      throw new DraftAutomationCreationError("LLM_REQUEST_FAILED", result.message, 502);
+      throw new DraftAutomationCreationError(
+        "LLM_REQUEST_FAILED",
+        result.message,
+        502,
+        providerDiagnostics(config.model, result.providerStatus)
+      );
     }
 
     if (result.kind === "timeout") {
@@ -292,6 +299,7 @@ function invalidResponseError(
   stage: string,
   providerStatus: number
 ): DraftAutomationCreationError {
+  const diagnostics = invalidResponseDiagnostics(model, stage, providerStatus);
   console.warn("AutoM8 draft automation creator returned an invalid response.", {
     model,
     stage,
@@ -301,6 +309,65 @@ function invalidResponseError(
   return new DraftAutomationCreationError(
     "INVALID_LLM_RESPONSE",
     INVALID_LLM_RESPONSE_MESSAGE,
-    502
+    502,
+    diagnostics
   );
+}
+
+function providerDiagnostics(model: string, providerStatus?: number): ApiErrorDiagnostics {
+  return {
+    failureType: "provider_rejection",
+    model,
+    providerStatus,
+    guidance:
+      "OpenRouter rejected the structured-output request. Check whether the selected route supports json_schema response_format, or retry with a fixed structured-output model."
+  };
+}
+
+function invalidResponseDiagnostics(
+  model: string,
+  stage: string,
+  providerStatus: number
+): ApiErrorDiagnostics {
+  return {
+    failureType: diagnosticFailureTypeForStage(stage),
+    model,
+    stage,
+    providerStatus,
+    guidance: diagnosticGuidanceForStage(stage)
+  };
+}
+
+function diagnosticFailureTypeForStage(stage: string): ApiErrorDiagnostics["failureType"] {
+  if (stage === "assistant-json") {
+    return "invalid_json";
+  }
+
+  if (
+    stage.startsWith("creation-result") ||
+    stage.startsWith("draft-") ||
+    stage.startsWith("step-") ||
+    stage.startsWith("clarification-question")
+  ) {
+    return "invalid_creation_result_shape";
+  }
+
+  return "invalid_assistant_message";
+}
+
+function diagnosticGuidanceForStage(stage: string): string {
+  if (stage === "assistant-json") {
+    return "The model returned assistant content that was not parseable JSON. Retry the request; if it repeats, use a fixed structured-output model instead of the free router.";
+  }
+
+  if (
+    stage.startsWith("creation-result") ||
+    stage.startsWith("draft-") ||
+    stage.startsWith("step-") ||
+    stage.startsWith("clarification-question")
+  ) {
+    return "The model returned JSON, but it did not match AutoM8's Draft Automation Creation Result contract. Retry the request; if it repeats, use a fixed structured-output model instead of the free router.";
+  }
+
+  return "OpenRouter returned a response without usable assistant JSON content. Retry the request; if it repeats, use a fixed structured-output model instead of the free router.";
 }

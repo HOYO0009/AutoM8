@@ -30,9 +30,24 @@ export interface AutomationRunResponse {
   run: AutomationRun;
 }
 
+export type ApiErrorDiagnosticFailureType =
+  | "provider_rejection"
+  | "invalid_assistant_message"
+  | "invalid_json"
+  | "invalid_creation_result_shape";
+
+export interface ApiErrorDiagnostics {
+  failureType?: ApiErrorDiagnosticFailureType;
+  model?: string;
+  stage?: string;
+  providerStatus?: number;
+  guidance?: string;
+}
+
 export interface ApiErrorResponse {
   error: {
     code: string;
     message: string;
+    diagnostics?: ApiErrorDiagnostics;
   };
 }

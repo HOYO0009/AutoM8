@@ -1,5 +1,12 @@
 import { AlertCircle, LoaderCircle, Sparkles } from "lucide-react";
 import { FormEvent, ReactNode } from "react";
+import type { ApiErrorDiagnostics } from "../../shared/apiResponses";
+
+interface AutomationBuilderPaneError {
+  message: string;
+  code?: string;
+  diagnostics?: ApiErrorDiagnostics;
+}
 
 export function AutomationBuilderPane({
   prompt,
@@ -22,7 +29,7 @@ export function AutomationBuilderPane({
   promptWordCount: number;
   canGenerate: boolean;
   isGenerating: boolean;
-  error: string | null;
+  error: AutomationBuilderPaneError | null;
   onGenerate: () => void;
   eyebrow?: string;
   title?: string;
@@ -75,9 +82,56 @@ export function AutomationBuilderPane({
       {error ? (
         <div className="error-box" role="alert">
           <AlertCircle aria-hidden="true" size={18} />
-          <span>{error}</span>
+          <div className="error-content">
+            <span>{error.message}</span>
+            <ErrorDiagnostics error={error} />
+          </div>
         </div>
       ) : null}
     </div>
   );
+}
+
+function ErrorDiagnostics({ error }: { error: AutomationBuilderPaneError }) {
+  const diagnostics = error.diagnostics;
+  const rows = [
+    error.code ? { label: "Code", value: error.code } : null,
+    diagnostics?.failureType
+      ? { label: "Failure", value: failureTypeLabel(diagnostics.failureType) }
+      : null,
+    diagnostics?.model ? { label: "Model", value: diagnostics.model } : null,
+    diagnostics?.stage ? { label: "Stage", value: diagnostics.stage } : null,
+    diagnostics?.providerStatus
+      ? { label: "Provider status", value: String(diagnostics.providerStatus) }
+      : null,
+    diagnostics?.guidance ? { label: "Guidance", value: diagnostics.guidance } : null
+  ].filter((row): row is { label: string; value: string } => Boolean(row));
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return (
+    <dl className="error-diagnostics" aria-label="Failure diagnostics">
+      {rows.map((row) => (
+        <div key={row.label}>
+          <dt>{row.label}</dt>
+          <dd>{row.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function failureTypeLabel(failureType: NonNullable<ApiErrorDiagnostics["failureType"]>): string {
+  switch (failureType) {
+    case "provider_rejection":
+      return "Provider rejection";
+    case "invalid_assistant_message":
+      return "Invalid assistant message";
+    case "invalid_json":
+      return "Invalid JSON";
+    case "invalid_creation_result_shape":
+      return "Invalid creation result shape";
+  }
 }

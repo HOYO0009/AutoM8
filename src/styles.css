@@ -329,6 +329,35 @@ h4 {
   background: var(--surface-danger);
 }
 
+.error-content {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-2);
+}
+
+.error-diagnostics {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+.error-diagnostics div {
+  display: contents;
+}
+
+.error-diagnostics dt {
+  color: var(--text-strong);
+  font-weight: 780;
+}
+
+.error-diagnostics dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 .notice-box {
   display: flex;
   align-items: flex-start;

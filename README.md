@@ -14,7 +14,7 @@ Prototype phase. Initial target platform is Windows. The web prototype creates a
 ## Quick Start
 
 Prerequisites: Node.js 24 and npm 11.
-Setup: `npm install`, then copy `.env.example` to `.env` and set `OPENROUTER_API_KEY` and `OPENROUTER_MODEL`. Use an OpenRouter model that supports structured outputs because Draft Automation Creation requires a JSON schema response.
+Setup: `npm install`, then copy `.env.example` to `.env` and set `OPENROUTER_API_KEY` and `OPENROUTER_MODEL`. `openrouter/free` is acceptable for local experiments, but Draft Automation Creation is more reliable with a fixed OpenRouter model whose supported parameters include `response_format` and `structured_outputs` because AutoM8 requires a JSON schema response.
 Run: `npm run dev`
 Test: `npm run test`
 
