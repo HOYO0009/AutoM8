@@ -4,9 +4,9 @@ import { fileURLToPath } from "node:url";
 
 import { createDraftAutomationCreationResult } from "./automation-builder/draftGenerator.js";
 import {
-  SaveAutomationCandidateError,
-  createSavedAutomationCandidateStore
-} from "./automation-builder/savedAutomationCandidateStore.js";
+  SaveAutomationError,
+  createSavedAutomationStore
+} from "./automation-builder/savedAutomationStore.js";
 import { createNonDeterministicDesktopTaskRunner } from "./automation-runner/nonDeterministicDesktopTaskRunner.js";
 import { RunAutomationError, createAutomationRunManager } from "./automation-runner/automationRunStore.js";
 import { createExecutableActionPlanner } from "./automation-runner/executableActionPlanner.js";
@@ -14,25 +14,17 @@ import { createWindowsDesktopDriver } from "./desktop/desktopDriver.js";
 import { sendApiError } from "./apiErrorResponse.js";
 import { validateClarificationAnswersShape } from "../shared/draftValidation.js";
 
-export function createAutoM8App(env: NodeJS.ProcessEnv = process.env) {
+export interface AutoM8AppConfig {
+  savedAutomationStoragePath?: string;
+  automationRunManager?: ReturnType<typeof createAutomationRunManager>;
+}
+
+export function createAutoM8App(env: NodeJS.ProcessEnv = process.env, config: AutoM8AppConfig = {}) {
   const app = express();
-  const savedAutomationCandidateStore = createSavedAutomationCandidateStore();
-  const desktopDriver = createWindowsDesktopDriver();
-  const executableActionPlanner = createExecutableActionPlanner({
-    apiKey: env.OPENROUTER_API_KEY,
-    model: env.OPENROUTER_MODEL,
-    baseUrl: env.OPENROUTER_BASE_URL
+  const savedAutomationStore = createSavedAutomationStore({
+    storagePath: config.savedAutomationStoragePath
   });
-  const nonDeterministicDesktopTaskRunner = createNonDeterministicDesktopTaskRunner(desktopDriver, {
-    apiKey: env.OPENROUTER_API_KEY,
-    model: env.OPENROUTER_VISION_MODEL ?? env.OPENROUTER_MODEL,
-    baseUrl: env.OPENROUTER_BASE_URL
-  });
-  const automationRunManager = createAutomationRunManager({
-    actionPlanner: executableActionPlanner,
-    driver: desktopDriver,
-    nonDeterministicTaskRunner: nonDeterministicDesktopTaskRunner
-  });
+  const automationRunManager = config.automationRunManager ?? createDefaultAutomationRunManager(env);
 
   app.use(express.json({ limit: "64kb" }));
 
@@ -42,7 +34,7 @@ export function createAutoM8App(env: NodeJS.ProcessEnv = process.env) {
     try {
       const clarificationAnswers = validateClarificationAnswersShape(request.body?.clarificationAnswers);
       const creationResult = await createDraftAutomationCreationResult(prompt, clarificationAnswers, {
-        apiKey: env.OPENROUTER_API_KEY,
+        "apiKey": env.OPENROUTER_API_KEY,
         model: env.OPENROUTER_MODEL,
         baseUrl: env.OPENROUTER_BASE_URL
       });
@@ -54,15 +46,15 @@ export function createAutoM8App(env: NodeJS.ProcessEnv = process.env) {
   });
 
   app.get("/api/saved-automations", (_request, response) => {
-    response.json({ savedAutomationCandidates: savedAutomationCandidateStore.list() });
+    response.json({ savedAutomations: savedAutomationStore.list() });
   });
 
   app.post("/api/saved-automations", (request, response) => {
     try {
-      const savedAutomationCandidate = savedAutomationCandidateStore.save(request.body?.draft);
+      const savedAutomation = savedAutomationStore.save(request.body?.draft);
       response.status(201).json({
-        savedAutomationCandidate,
-        savedAutomationCandidates: savedAutomationCandidateStore.list()
+        savedAutomation,
+        savedAutomations: savedAutomationStore.list()
       });
     } catch (error) {
       sendApiError(response, error);
@@ -73,15 +65,15 @@ export function createAutoM8App(env: NodeJS.ProcessEnv = process.env) {
     const prompt = typeof request.body?.prompt === "string" ? request.body.prompt : "";
 
     try {
-      const savedAutomationContext = requireSavedAutomationCandidate(
-        savedAutomationCandidateStore.get(request.params.id)
+      const savedAutomationContext = requireSavedAutomation(
+        savedAutomationStore.get(request.params.id)
       );
       const clarificationAnswers = validateClarificationAnswersShape(request.body?.clarificationAnswers);
       const creationResult = await createDraftAutomationCreationResult(
         prompt,
         clarificationAnswers,
         {
-          apiKey: env.OPENROUTER_API_KEY,
+          "apiKey": env.OPENROUTER_API_KEY,
           model: env.OPENROUTER_MODEL,
           baseUrl: env.OPENROUTER_BASE_URL
         },
@@ -104,11 +96,31 @@ export function createAutoM8App(env: NodeJS.ProcessEnv = process.env) {
         );
       }
 
-      const savedAutomationCandidate = savedAutomationCandidateStore.replace(request.params.id, request.body?.draft);
+      const savedAutomation = savedAutomationStore.replace(request.params.id, request.body?.draft);
       automationRunManager.clearRunsForAutomation(request.params.id);
       response.json({
-        savedAutomationCandidate,
-        savedAutomationCandidates: savedAutomationCandidateStore.list()
+        savedAutomation,
+        savedAutomations: savedAutomationStore.list()
+      });
+    } catch (error) {
+      sendApiError(response, error);
+    }
+  });
+
+  app.delete("/api/saved-automations/:id", (request, response) => {
+    try {
+      if (automationRunManager.hasActiveRunForAutomation(request.params.id)) {
+        throw new RunAutomationError(
+          "AUTOMATION_RUN_ACTIVE",
+          "Finish or cancel the active run before deleting this automation.",
+          409
+        );
+      }
+
+      savedAutomationStore.delete(request.params.id);
+      automationRunManager.clearRunsForAutomation(request.params.id);
+      response.json({
+        savedAutomations: savedAutomationStore.list()
       });
     } catch (error) {
       sendApiError(response, error);
@@ -117,8 +129,8 @@ export function createAutoM8App(env: NodeJS.ProcessEnv = process.env) {
 
   app.post("/api/saved-automations/:id/run", (request, response) => {
     try {
-      const savedAutomationCandidate = savedAutomationCandidateStore.get(request.params.id);
-      const run = automationRunManager.start(savedAutomationCandidate);
+      const savedAutomation = savedAutomationStore.get(request.params.id);
+      const run = automationRunManager.start(savedAutomation);
       response.status(201).json({
         runId: run.id,
         run
@@ -143,9 +155,9 @@ export function createAutoM8App(env: NodeJS.ProcessEnv = process.env) {
   app.post("/api/automation-runs/:id/approvals/:approvalId/approve", (request, response) => {
     try {
       const run = automationRunManager.get(request.params.id);
-      const savedAutomationCandidate = savedAutomationCandidateStore.get(run.automationId);
+      const savedAutomation = savedAutomationStore.get(run.automationId);
       response.json({
-        run: automationRunManager.approve(request.params.id, request.params.approvalId, savedAutomationCandidate)
+        run: automationRunManager.approve(request.params.id, request.params.approvalId, savedAutomation)
       });
     } catch (error) {
       sendApiError(response, error);
@@ -186,14 +198,34 @@ export function createAutoM8App(env: NodeJS.ProcessEnv = process.env) {
   return app;
 }
 
-function requireSavedAutomationCandidate<T>(savedAutomationCandidate: T | undefined): T {
-  if (!savedAutomationCandidate) {
-    throw new SaveAutomationCandidateError(
+function createDefaultAutomationRunManager(env: NodeJS.ProcessEnv): ReturnType<typeof createAutomationRunManager> {
+  const desktopDriver = createWindowsDesktopDriver();
+  const executableActionPlanner = createExecutableActionPlanner({
+    "apiKey": env.OPENROUTER_API_KEY,
+    model: env.OPENROUTER_MODEL,
+    baseUrl: env.OPENROUTER_BASE_URL
+  });
+  const nonDeterministicDesktopTaskRunner = createNonDeterministicDesktopTaskRunner(desktopDriver, {
+    "apiKey": env.OPENROUTER_API_KEY,
+    model: env.OPENROUTER_VISION_MODEL ?? env.OPENROUTER_MODEL,
+    baseUrl: env.OPENROUTER_BASE_URL
+  });
+
+  return createAutomationRunManager({
+    actionPlanner: executableActionPlanner,
+    driver: desktopDriver,
+    nonDeterministicTaskRunner: nonDeterministicDesktopTaskRunner
+  });
+}
+
+function requireSavedAutomation<T>(savedAutomation: T | undefined): T {
+  if (!savedAutomation) {
+    throw new SaveAutomationError(
       "SAVED_AUTOMATION_NOT_FOUND",
       "Choose an existing saved automation before editing.",
       404
     );
   }
 
-  return savedAutomationCandidate;
+  return savedAutomation;
 }

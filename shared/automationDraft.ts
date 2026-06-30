@@ -53,7 +53,7 @@ export type DraftAutomationCreationResult =
       questions: [];
     };
 
-export interface SavedAutomationCandidate extends DraftAutomation {
+export interface SavedAutomation extends DraftAutomation {
   id: string;
   createdAt: string;
 }

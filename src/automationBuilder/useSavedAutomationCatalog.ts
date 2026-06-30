@@ -1,37 +1,40 @@
 import { useEffect, useState } from "react";
 
-import { DraftAutomation, SavedAutomationCandidate } from "../../shared/automationDraft";
+import { DraftAutomation, SavedAutomation } from "../../shared/automationDraft";
 import {
   ApiClientError,
-  fetchSavedAutomationCandidates,
+  deleteSavedAutomation,
+  fetchSavedAutomations,
   replaceSavedAutomation,
   saveDraftAutomation
 } from "../api/autom8Api";
 
 export function useSavedAutomationCatalog() {
-  const [savedAutomationCandidates, setSavedAutomationCandidates] = useState<SavedAutomationCandidate[]>([]);
+  const [savedAutomations, setSavedAutomations] = useState<SavedAutomation[]>([]);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedNotice, setSavedNotice] = useState<string | null>(null);
   const [editSaveError, setEditSaveError] = useState<string | null>(null);
   const [editSavedNotice, setEditSavedNotice] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [deletingAutomationId, setDeletingAutomationId] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
 
-    async function loadSavedAutomationCandidates() {
+    async function loadSavedAutomations() {
       try {
-        const candidates = await fetchSavedAutomationCandidates();
+        const automations = await fetchSavedAutomations();
         if (isMounted) {
-          setSavedAutomationCandidates(candidates);
+          setSavedAutomations(automations);
         }
       } catch {
         // Saved automations are still available after the next successful save.
       }
     }
 
-    void loadSavedAutomationCandidates();
+    void loadSavedAutomations();
 
     return () => {
       isMounted = false;
@@ -41,11 +44,13 @@ export function useSavedAutomationCatalog() {
   function clearDraftSaveFeedback() {
     setSaveError(null);
     setSavedNotice(null);
+    setDeleteError(null);
   }
 
   function clearEditSaveFeedback() {
     setEditSaveError(null);
     setEditSavedNotice(null);
+    setDeleteError(null);
   }
 
   function resetEditSaveState() {
@@ -53,7 +58,7 @@ export function useSavedAutomationCatalog() {
     setIsSavingEdit(false);
   }
 
-  async function saveDraft(draft: DraftAutomation): Promise<SavedAutomationCandidate | null> {
+  async function saveDraft(draft: DraftAutomation): Promise<SavedAutomation | null> {
     if (isSaving) {
       return null;
     }
@@ -63,9 +68,9 @@ export function useSavedAutomationCatalog() {
 
     try {
       const payload = await saveDraftAutomation(draft);
-      setSavedAutomationCandidates(payload.savedAutomationCandidates);
-      setSavedNotice(`Saved "${payload.savedAutomationCandidate.name}".`);
-      return payload.savedAutomationCandidate;
+      setSavedAutomations(payload.savedAutomations);
+      setSavedNotice(`Saved "${payload.savedAutomation.name}".`);
+      return payload.savedAutomation;
     } catch (saveDraftError) {
       setSaveError(
         saveDraftError instanceof ApiClientError
@@ -81,7 +86,7 @@ export function useSavedAutomationCatalog() {
   async function saveEditedAutomation(
     automationId: string,
     editDraft: DraftAutomation
-  ): Promise<SavedAutomationCandidate | null> {
+  ): Promise<SavedAutomation | null> {
     if (isSavingEdit) {
       return null;
     }
@@ -91,9 +96,9 @@ export function useSavedAutomationCatalog() {
 
     try {
       const payload = await replaceSavedAutomation(automationId, editDraft);
-      setSavedAutomationCandidates(payload.savedAutomationCandidates);
-      setEditSavedNotice(`Saved changes to "${payload.savedAutomationCandidate.name}".`);
-      return payload.savedAutomationCandidate;
+      setSavedAutomations(payload.savedAutomations);
+      setEditSavedNotice(`Saved changes to "${payload.savedAutomation.name}".`);
+      return payload.savedAutomation;
     } catch (saveDraftError) {
       setEditSaveError(
         saveDraftError instanceof ApiClientError
@@ -106,18 +111,45 @@ export function useSavedAutomationCatalog() {
     }
   }
 
+  async function deleteAutomation(automationId: string): Promise<boolean> {
+    if (deletingAutomationId) {
+      return false;
+    }
+
+    setDeletingAutomationId(automationId);
+    setDeleteError(null);
+
+    try {
+      const payload = await deleteSavedAutomation(automationId);
+      setSavedAutomations(payload.savedAutomations);
+      return true;
+    } catch (deleteSavedAutomationError) {
+      setDeleteError(
+        deleteSavedAutomationError instanceof ApiClientError
+          ? deleteSavedAutomationError.message
+          : "AutoM8 could not reach the local saved automation API."
+      );
+      return false;
+    } finally {
+      setDeletingAutomationId(null);
+    }
+  }
+
   return {
-    savedAutomationCandidates,
+    savedAutomations,
     saveError,
     savedNotice,
     editSaveError,
     editSavedNotice,
+    deleteError,
     isSaving,
     isSavingEdit,
+    deletingAutomationId,
     clearDraftSaveFeedback,
     clearEditSaveFeedback,
     resetEditSaveState,
     saveDraft,
-    saveEditedAutomation
+    saveEditedAutomation,
+    deleteAutomation
   };
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { DraftAutomationStep, SavedAutomationCandidate } from "../../shared/automationDraft.js";
+import { DraftAutomationStep, SavedAutomation } from "../../shared/automationDraft.js";
 import { ExecutableActionPlan } from "../../shared/automationRun.js";
 import { NonDeterministicDesktopTaskRunner } from "./nonDeterministicDesktopTaskRunner.js";
 import { DesktopDriver } from "../desktop/desktopDriver.js";
@@ -9,7 +9,7 @@ import { ExecutableActionPlanner } from "./executableActionPlanner.js";
 
 describe("createAutomationRunManager", () => {
   it("runs deterministic desktop actions asynchronously with step logs", async () => {
-    const automation = savedAutomationCandidate();
+    const automation = savedAutomation();
     const driver = mockDriver();
     const runManager = createAutomationRunManager({
       idFactory: sequentialIds("run-1"),
@@ -50,7 +50,7 @@ describe("createAutomationRunManager", () => {
   });
 
   it("pauses for approval before side-effect actions and resumes after approval", async () => {
-    const automation = savedAutomationCandidate({
+    const automation = savedAutomation({
       steps: [
         {
           title: "Schedule calendar event",
@@ -129,7 +129,7 @@ describe("createAutomationRunManager", () => {
   });
 
   it("fails a run when approval is denied", async () => {
-    const automation = savedAutomationCandidate();
+    const automation = savedAutomation();
     const runManager = createAutomationRunManager({
       idFactory: sequentialIds("run-1", "approval-1"),
       now: () => new Date("2026-06-24T12:00:00.000Z"),
@@ -168,7 +168,7 @@ describe("createAutomationRunManager", () => {
   });
 
   it("pauses and resumes when a non-deterministic desktop task requests approval", async () => {
-    const automation = savedAutomationCandidate();
+    const automation = savedAutomation();
     const nonDeterministicTaskRunner = mockNonDeterministicTaskRunner(
       {
         status: "waiting_for_approval",
@@ -227,7 +227,7 @@ describe("createAutomationRunManager", () => {
   });
 
   it("fails when a non-deterministic desktop task approval is denied", async () => {
-    const automation = savedAutomationCandidate();
+    const automation = savedAutomation();
     const runManager = createAutomationRunManager({
       idFactory: sequentialIds("run-1", "approval-1"),
       now: () => new Date("2026-06-24T12:00:00.000Z"),
@@ -270,7 +270,7 @@ describe("createAutomationRunManager", () => {
   });
 
   it("reports active automation runs and clears stale run context after they finish", async () => {
-    const automation = savedAutomationCandidate();
+    const automation = savedAutomation();
     const runManager = createAutomationRunManager({
       idFactory: sequentialIds("run-1"),
       now: () => new Date("2026-06-24T12:00:00.000Z"),
@@ -303,7 +303,7 @@ describe("createAutomationRunManager", () => {
   });
 });
 
-function savedAutomationCandidate(overrides: Partial<SavedAutomationCandidate> = {}): SavedAutomationCandidate {
+function savedAutomation(overrides: Partial<SavedAutomation> = {}): SavedAutomation {
   return {
     id: "saved-1",
     createdAt: "2026-06-24T11:00:00.000Z",

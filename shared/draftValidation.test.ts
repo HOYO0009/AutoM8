@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { DraftStepDetails } from "./automationDraft.js";
 import {
   cloneDraftAutomation,
-  cloneSavedAutomationCandidate,
+  cloneSavedAutomation,
   DraftValidationError,
   validateClarificationAnswersShape,
   validateDraftAutomationCreationResultShape,
@@ -265,7 +265,7 @@ describe("draft cloning", () => {
     expect(clone.steps[0].details.inputs).not.toBe(draft.steps[0].details.inputs);
   });
 
-  it("clones saved candidates without sharing nested references", () => {
+  it("clones saved automations without sharing nested references", () => {
     const saved = {
       id: "saved-1",
       createdAt: "2026-06-24T12:00:00.000Z",
@@ -280,7 +280,7 @@ describe("draft cloning", () => {
         }
       ]
     };
-    const clone = cloneSavedAutomationCandidate(saved);
+    const clone = cloneSavedAutomation(saved);
 
     expect(clone).toEqual(saved);
     expect(clone).not.toBe(saved);

@@ -1,29 +1,36 @@
-import { AlertCircle, LoaderCircle, Pencil, Play } from "lucide-react";
+import { AlertCircle, LoaderCircle, Pencil, Play, Trash2 } from "lucide-react";
 
-import { SavedAutomationCandidate } from "../../shared/automationDraft";
+import { SavedAutomation } from "../../shared/automationDraft";
 import { AutomationRun } from "../../shared/automationRun";
 import { NodeGraphViewer } from "../nodeGraphViewer/NodeGraphViewer";
 import { AutomationRunResult } from "./AutomationRunResult";
 
-export function SavedAutomationCandidateDetail({
+export function SavedAutomationDetail({
   automation,
   latestRun,
   runError,
+  deleteError,
   runningAutomationId,
+  deletingAutomationId,
   onRun,
   onEdit,
+  onDelete,
   onApproval
 }: {
-  automation: SavedAutomationCandidate;
+  automation: SavedAutomation;
   latestRun?: AutomationRun;
   runError?: string;
+  deleteError?: string | null;
   runningAutomationId: string | null;
+  deletingAutomationId?: string | null;
   onRun: (automationId: string) => void;
   onEdit?: (automationId: string) => void;
+  onDelete?: (automationId: string) => void;
   onApproval: (runId: string, approvalId: string, decision: "approve" | "deny") => void;
 }) {
   const hasActiveRun = latestRun ? ["queued", "running", "waiting_for_approval"].includes(latestRun.status) : false;
   const isRunning = runningAutomationId === automation.id || hasActiveRun;
+  const isDeleting = deletingAutomationId === automation.id;
 
   return (
     <article className="saved-automation-detail">
@@ -51,6 +58,21 @@ export function SavedAutomationCandidateDetail({
               )}
               Run
             </button>
+            {onDelete ? (
+              <button
+                className="danger-button"
+                type="button"
+                onClick={() => onDelete(automation.id)}
+                disabled={isRunning || Boolean(runningAutomationId) || isDeleting}
+              >
+                {isDeleting ? (
+                  <LoaderCircle aria-hidden="true" className="spin" size={16} />
+                ) : (
+                  <Trash2 aria-hidden="true" size={16} />
+                )}
+                Delete
+              </button>
+            ) : null}
           </div>
         </div>
         <p>{automation.summary}</p>
@@ -58,6 +80,12 @@ export function SavedAutomationCandidateDetail({
           <div className="error-box" role="alert">
             <AlertCircle aria-hidden="true" size={18} />
             <span>{runError}</span>
+          </div>
+        ) : null}
+        {deleteError ? (
+          <div className="error-box" role="alert">
+            <AlertCircle aria-hidden="true" size={18} />
+            <span>{deleteError}</span>
           </div>
         ) : null}
       </header>

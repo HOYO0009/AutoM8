@@ -6,7 +6,7 @@ import {
   AutomationStepRun,
   ExecutableActionPlan
 } from "../../shared/automationRun.js";
-import { SavedAutomationCandidate } from "../../shared/automationDraft.js";
+import { SavedAutomation } from "../../shared/automationDraft.js";
 import { NonDeterministicDesktopTaskRunner } from "./nonDeterministicDesktopTaskRunner.js";
 import { DesktopDriver } from "../desktop/desktopDriver.js";
 import { actionRequiresApproval, ExecutableActionPlanner } from "./executableActionPlanner.js";
@@ -52,7 +52,7 @@ export function createAutomationRunManager(config: AutomationRunManagerConfig) {
   }
 
   function findRun(id: string): AutomationRun {
-    const run = runs.find((candidate) => candidate.id === id);
+    const run = runs.find((runEntry) => runEntry.id === id);
     if (!run) {
       throw new RunAutomationError("RUN_NOT_FOUND", "Choose an existing automation run.", 404);
     }
@@ -60,7 +60,7 @@ export function createAutomationRunManager(config: AutomationRunManagerConfig) {
     return run;
   }
 
-  async function executeRun(run: AutomationRun, automation: SavedAutomationCandidate, startStepIndex = 0): Promise<void> {
+  async function executeRun(run: AutomationRun, automation: SavedAutomation, startStepIndex = 0): Promise<void> {
     try {
       if (run.status === "queued") {
         run.status = "running";
@@ -191,7 +191,7 @@ export function createAutomationRunManager(config: AutomationRunManagerConfig) {
     return approval;
   }
 
-  function continueRun(run: AutomationRun, automation: SavedAutomationCandidate, startStepIndex: number): void {
+  function continueRun(run: AutomationRun, automation: SavedAutomation, startStepIndex: number): void {
     const continuation = executeRun(run, automation, startStepIndex).finally(() => {
       continuations.delete(run.id);
     });
@@ -225,7 +225,7 @@ export function createAutomationRunManager(config: AutomationRunManagerConfig) {
       return cloneRun(findRun(id));
     },
 
-    start(automation: SavedAutomationCandidate | undefined): AutomationRun {
+    start(automation: SavedAutomation | undefined): AutomationRun {
       if (!automation) {
         throw new RunAutomationError(
           "AUTOMATION_NOT_FOUND",
@@ -255,13 +255,13 @@ export function createAutomationRunManager(config: AutomationRunManagerConfig) {
       return cloneRun(run);
     },
 
-    approve(runId: string, approvalId: string, automation: SavedAutomationCandidate | undefined): AutomationRun {
+    approve(runId: string, approvalId: string, automation: SavedAutomation | undefined): AutomationRun {
       if (!automation) {
         throw new RunAutomationError("AUTOMATION_NOT_FOUND", "The saved automation for this run is missing.", 404);
       }
 
       const run = findRun(runId);
-      const approval = run.approvals.find((candidate) => candidate.id === approvalId);
+      const approval = run.approvals.find((runApproval) => runApproval.id === approvalId);
       if (!approval || approval.status !== "pending") {
         throw new RunAutomationError("APPROVAL_NOT_FOUND", "Choose a pending approval before resuming the run.", 404);
       }
@@ -278,7 +278,7 @@ export function createAutomationRunManager(config: AutomationRunManagerConfig) {
 
     deny(runId: string, approvalId: string): AutomationRun {
       const run = findRun(runId);
-      const approval = run.approvals.find((candidate) => candidate.id === approvalId);
+      const approval = run.approvals.find((runApproval) => runApproval.id === approvalId);
       if (!approval || approval.status !== "pending") {
         throw new RunAutomationError("APPROVAL_NOT_FOUND", "Choose a pending approval before denying the run.", 404);
       }

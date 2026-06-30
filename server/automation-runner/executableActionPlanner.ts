@@ -1,6 +1,6 @@
 import {
   DraftAutomation,
-  SavedAutomationCandidate
+  SavedAutomation
 } from "../../shared/automationDraft.js";
 import { ExecutableAction } from "../../shared/executableAction.js";
 import { ExecutableActionPlan, ExecutableActionPlanStep } from "../../shared/automationRun.js";
@@ -22,7 +22,7 @@ export interface ExecutableActionPlannerConfig {
 }
 
 export interface ExecutableActionPlanner {
-  createPlan(automation: SavedAutomationCandidate): Promise<ExecutableActionPlan>;
+  createPlan(automation: SavedAutomation): Promise<ExecutableActionPlan>;
 }
 
 export class ExecutableActionPlanningError extends Error {
@@ -67,7 +67,7 @@ export function createExecutableActionPlanner(config: ExecutableActionPlannerCon
   };
 }
 
-export function createHeuristicExecutableActionPlan(automation: SavedAutomationCandidate): ExecutableActionPlan {
+export function createHeuristicExecutableActionPlan(automation: SavedAutomation): ExecutableActionPlan {
   return {
     automationId: automation.id,
     steps: automation.steps.map((step) => ({
@@ -88,7 +88,7 @@ export function actionRequiresApproval(action: ExecutableAction): boolean {
 
 function inferActions(
   step: DraftAutomation["steps"][number],
-  automation: SavedAutomationCandidate
+  automation: SavedAutomation
 ): ExecutableAction[] {
   const text = `${step.title} ${step.description}`.toLowerCase();
   const actions: ExecutableAction[] = [];
@@ -136,7 +136,7 @@ function inferActions(
 }
 
 async function createModelExecutableActionPlan(
-  automation: SavedAutomationCandidate,
+  automation: SavedAutomation,
   config: Required<Pick<ExecutableActionPlannerConfig, "apiKey" | "model">> & ExecutableActionPlannerConfig
 ): Promise<ExecutableActionPlan> {
   const result = await requestOpenRouterStructuredOutput({
@@ -194,7 +194,7 @@ async function createModelExecutableActionPlan(
 }
 
 export function validateExecutableActionPlan(
-  automation: SavedAutomationCandidate,
+  automation: SavedAutomation,
   value: unknown,
   model = "local",
   providerStatus = 200

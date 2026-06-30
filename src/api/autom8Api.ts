@@ -3,17 +3,18 @@ import {
   ApiErrorResponse,
   AutomationRunResponse,
   AutomationRunsResponse,
+  DeleteSavedAutomationResponse,
   DraftAutomationCreationResponse,
-  ReplaceSavedAutomationCandidateResponse,
+  ReplaceSavedAutomationResponse,
   RunAutomationResponse,
-  SavedAutomationCandidatesResponse,
-  SaveDraftAutomationCandidateResponse
+  SavedAutomationsResponse,
+  SaveDraftAutomationResponse
 } from "../../shared/apiResponses";
 import {
   ClarificationAnswer,
   DraftAutomation,
   DraftAutomationCreationResult,
-  SavedAutomationCandidate
+  SavedAutomation
 } from "../../shared/automationDraft";
 import { AutomationRun } from "../../shared/automationRun";
 
@@ -47,18 +48,18 @@ export async function createDraftAutomationCreationResult(
   return payload.creationResult;
 }
 
-export async function fetchSavedAutomationCandidates(): Promise<SavedAutomationCandidate[]> {
-  const payload = await requestJson<SavedAutomationCandidatesResponse>(
+export async function fetchSavedAutomations(): Promise<SavedAutomation[]> {
+  const payload = await requestJson<SavedAutomationsResponse>(
     "/api/saved-automations",
     undefined,
     "AutoM8 could not load saved automations."
   );
 
-  return payload.savedAutomationCandidates;
+  return payload.savedAutomations;
 }
 
-export async function saveDraftAutomation(draft: DraftAutomation): Promise<SaveDraftAutomationCandidateResponse> {
-  return requestJson<SaveDraftAutomationCandidateResponse>(
+export async function saveDraftAutomation(draft: DraftAutomation): Promise<SaveDraftAutomationResponse> {
+  return requestJson<SaveDraftAutomationResponse>(
     "/api/saved-automations",
     {
       method: "POST",
@@ -94,8 +95,8 @@ export async function createSavedAutomationEditDraft(
 export async function replaceSavedAutomation(
   automationId: string,
   draft: DraftAutomation
-): Promise<ReplaceSavedAutomationCandidateResponse> {
-  return requestJson<ReplaceSavedAutomationCandidateResponse>(
+): Promise<ReplaceSavedAutomationResponse> {
+  return requestJson<ReplaceSavedAutomationResponse>(
     `/api/saved-automations/${encodeURIComponent(automationId)}`,
     {
       method: "PUT",
@@ -105,6 +106,16 @@ export async function replaceSavedAutomation(
       body: JSON.stringify({ draft })
     },
     "AutoM8 could not save automation changes."
+  );
+}
+
+export async function deleteSavedAutomation(automationId: string): Promise<DeleteSavedAutomationResponse> {
+  return requestJson<DeleteSavedAutomationResponse>(
+    `/api/saved-automations/${encodeURIComponent(automationId)}`,
+    {
+      method: "DELETE"
+    },
+    "AutoM8 could not delete the saved automation."
   );
 }
 

@@ -1,12 +1,12 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { DraftStepDetails, SavedAutomationCandidate } from "../../shared/automationDraft";
+import { DraftStepDetails, SavedAutomation } from "../../shared/automationDraft";
 import { AutomationRun } from "../../shared/automationRun";
-import { SavedAutomationCandidateDetail } from "./SavedAutomationCandidateDetail";
-import { SavedAutomationCandidateList } from "./SavedAutomationCandidateList";
+import { SavedAutomationDetail } from "./SavedAutomationDetail";
+import { SavedAutomationList } from "./SavedAutomationList";
 
-const savedAutomations: SavedAutomationCandidate[] = [
+const savedAutomations: SavedAutomation[] = [
   {
     id: "automation-1",
     createdAt: "2026-06-24T00:00:00.000Z",
@@ -63,11 +63,11 @@ const latestRun: AutomationRun = {
   ]
 };
 
-describe("SavedAutomationCandidateList", () => {
+describe("SavedAutomationList", () => {
   it("renders saved automations as compact sidebar items without inline graph details", () => {
     const html = renderToStaticMarkup(
-      <SavedAutomationCandidateList
-        savedAutomationCandidates={savedAutomations}
+      <SavedAutomationList
+        savedAutomations={savedAutomations}
         latestRunByAutomationId={{ "automation-1": latestRun }}
         selectedAutomationId="automation-1"
         onSelectNew={() => undefined}
@@ -83,14 +83,30 @@ describe("SavedAutomationCandidateList", () => {
     expect(html).not.toContain("Morning Revenue automation graph");
   });
 
+  it("renders the refreshed saved automation list without a deleted automation", () => {
+    const html = renderToStaticMarkup(
+      <SavedAutomationList
+        savedAutomations={[savedAutomations[1]]}
+        latestRunByAutomationId={{}}
+        selectedAutomationId={null}
+        onSelectNew={() => undefined}
+        onSelectAutomation={() => undefined}
+      />
+    );
+
+    expect(html).not.toContain("Morning Revenue");
+    expect(html).toContain("Weekly Report");
+  });
+
   it("renders the focused saved automation detail with graph and run controls", () => {
     const html = renderToStaticMarkup(
-      <SavedAutomationCandidateDetail
+      <SavedAutomationDetail
         automation={savedAutomations[0]}
         latestRun={latestRun}
         runningAutomationId={null}
         onRun={() => undefined}
         onEdit={() => undefined}
+        onDelete={() => undefined}
         onApproval={() => undefined}
       />
     );
@@ -100,6 +116,7 @@ describe("SavedAutomationCandidateList", () => {
     expect(html).toContain("Inspectable automation flow");
     expect(html).toContain("Edit");
     expect(html).toContain("Run");
+    expect(html).toContain("Delete");
     expect(html).toContain("Latest run");
     expect(html).toContain("Completed");
   });

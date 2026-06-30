@@ -1,21 +1,23 @@
-import { DraftAutomationCreationResult, SavedAutomationCandidate } from "./automationDraft.js";
+import { DraftAutomationCreationResult, SavedAutomation } from "./automationDraft.js";
 import { AutomationRun } from "./automationRun.js";
 
 export interface DraftAutomationCreationResponse {
   creationResult: DraftAutomationCreationResult;
 }
 
-export interface SavedAutomationCandidatesResponse {
-  savedAutomationCandidates: SavedAutomationCandidate[];
+export interface SavedAutomationsResponse {
+  savedAutomations: SavedAutomation[];
 }
 
-export interface SaveDraftAutomationCandidateResponse extends SavedAutomationCandidatesResponse {
-  savedAutomationCandidate: SavedAutomationCandidate;
+export interface SaveDraftAutomationResponse extends SavedAutomationsResponse {
+  savedAutomation: SavedAutomation;
 }
 
-export interface ReplaceSavedAutomationCandidateResponse extends SavedAutomationCandidatesResponse {
-  savedAutomationCandidate: SavedAutomationCandidate;
+export interface ReplaceSavedAutomationResponse extends SavedAutomationsResponse {
+  savedAutomation: SavedAutomation;
 }
+
+export interface DeleteSavedAutomationResponse extends SavedAutomationsResponse {}
 
 export interface RunAutomationResponse {
   runId: string;

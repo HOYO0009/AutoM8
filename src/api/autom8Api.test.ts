@@ -4,6 +4,7 @@ import {
   ApiClientError,
   createDraftAutomationCreationResult,
   createSavedAutomationEditDraft,
+  deleteSavedAutomation,
   replaceSavedAutomation
 } from "./autom8Api";
 
@@ -121,12 +122,12 @@ describe("autom8Api saved automation editing", () => {
     };
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
       jsonResponse({
-        savedAutomationCandidate: {
+        savedAutomation: {
           ...draft,
           id: "saved-1",
           createdAt: "2026-06-24T12:00:00.000Z"
         },
-        savedAutomationCandidates: [
+        savedAutomations: [
           {
             ...draft,
             id: "saved-1",
@@ -139,12 +140,31 @@ describe("autom8Api saved automation editing", () => {
 
     const result = await replaceSavedAutomation("saved-1", draft);
 
-    expect(result.savedAutomationCandidate.id).toBe("saved-1");
+    expect(result.savedAutomation.id).toBe("saved-1");
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/saved-automations/saved-1",
       expect.objectContaining({
         method: "PUT",
         body: JSON.stringify({ draft })
+      })
+    );
+  });
+
+  it("deletes a saved automation", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      jsonResponse({
+        savedAutomations: []
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await deleteSavedAutomation("saved 1");
+
+    expect(result.savedAutomations).toEqual([]);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/saved-automations/saved%201",
+      expect.objectContaining({
+        method: "DELETE"
       })
     );
   });

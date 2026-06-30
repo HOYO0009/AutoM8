@@ -11,7 +11,7 @@ Integrated slices:
 - `run-nondeterministic-desktop-task.md`
 
 Integrated behavior:
-- Given a user has saved an automation candidate
+- Given a user has a saved automation
 - When they start a run
 - Then AutoM8 creates an asynchronous run from an executable action plan
 - And deterministic actions execute through the Windows desktop driver

@@ -871,6 +871,16 @@ h4 {
   font-size: 0.84rem;
 }
 
+.saved-actions button.danger-button {
+  border-color: oklch(0.78 0.07 32);
+  color: var(--danger);
+  background: var(--surface-danger);
+}
+
+.saved-actions button.danger-button:hover:not(:disabled) {
+  background: oklch(0.94 0.028 28);
+}
+
 .run-result {
   display: grid;
   gap: var(--space-3);

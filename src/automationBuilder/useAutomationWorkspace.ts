@@ -39,6 +39,15 @@ export function useAutomationWorkspace() {
     return savedAutomation;
   }
 
+  async function deleteSavedAutomation(automationId: string) {
+    const didDelete = await savedAutomationCatalog.deleteAutomation(automationId);
+    if (didDelete) {
+      automationRuns.clearRunsForAutomation(automationId);
+    }
+
+    return didDelete;
+  }
+
   function resetEditWorkspace() {
     savedAutomationEdit.resetEditWorkspace();
     savedAutomationCatalog.resetEditSaveState();
@@ -61,13 +70,15 @@ export function useAutomationWorkspace() {
     editError: savedAutomationEdit.editError,
     editSaveError: savedAutomationCatalog.editSaveError,
     editSavedNotice: savedAutomationCatalog.editSavedNotice,
-    savedAutomationCandidates: savedAutomationCatalog.savedAutomationCandidates,
+    deleteError: savedAutomationCatalog.deleteError,
+    savedAutomations: savedAutomationCatalog.savedAutomations,
     latestRunByAutomationId: automationRuns.latestRunByAutomationId,
     runErrors: automationRuns.runErrors,
     isGenerating: draftAutomationCreation.isGenerating,
     isSaving: savedAutomationCatalog.isSaving,
     isGeneratingEdit: savedAutomationEdit.isGeneratingEdit,
     isSavingEdit: savedAutomationCatalog.isSavingEdit,
+    deletingAutomationId: savedAutomationCatalog.deletingAutomationId,
     runningAutomationId: automationRuns.runningAutomationId,
     canGenerate: draftAutomationCreation.canGenerate,
     canSubmitClarifications: draftAutomationCreation.canSubmitClarifications,
@@ -83,6 +94,7 @@ export function useAutomationWorkspace() {
     updateEditClarificationAnswer: savedAutomationEdit.updateEditClarificationAnswer,
     saveDraft,
     saveEditedAutomation,
+    deleteSavedAutomation,
     resetEditWorkspace,
     runAutomation: automationRuns.runAutomation,
     decideApproval: automationRuns.decideApproval

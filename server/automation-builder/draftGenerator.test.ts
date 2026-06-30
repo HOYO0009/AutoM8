@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { SavedAutomationCandidate } from "../../shared/automationDraft.js";
+import { SavedAutomation } from "../../shared/automationDraft.js";
 import { createDraftAutomationCreationResult } from "./draftGenerator.js";
 
 describe("createDraftAutomationCreationResult", () => {
@@ -246,7 +246,7 @@ describe("createDraftAutomationCreationResult", () => {
         ]
       })
     );
-    const savedAutomationContext: SavedAutomationCandidate = {
+    const savedAutomationContext: SavedAutomation = {
       id: "saved-1",
       createdAt: "2026-06-24T12:00:00.000Z",
       name: "Daily Sales Summary",

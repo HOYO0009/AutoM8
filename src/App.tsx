@@ -5,15 +5,15 @@ import { ClarificationPanel } from "./automationBuilder/ClarificationPanel";
 import { DraftPreview } from "./automationBuilder/DraftPreview";
 import { EmptyPreview } from "./automationBuilder/EmptyPreview";
 import { useAutomationWorkspace } from "./automationBuilder/useAutomationWorkspace";
-import { SavedAutomationCandidateDetail } from "./automationRunner/SavedAutomationCandidateDetail";
-import { SavedAutomationCandidateList } from "./automationRunner/SavedAutomationCandidateList";
+import { SavedAutomationDetail } from "./automationRunner/SavedAutomationDetail";
+import { SavedAutomationList } from "./automationRunner/SavedAutomationList";
 
 export function App() {
   const workspace = useAutomationWorkspace();
   const [focusedAutomationId, setFocusedAutomationId] = useState<string | null>(() => getFocusedAutomationIdFromHash());
   const [editingAutomationId, setEditingAutomationId] = useState<string | null>(null);
   const focusedAutomation =
-    workspace.savedAutomationCandidates.find((automation) => automation.id === focusedAutomationId) ?? null;
+    workspace.savedAutomations.find((automation) => automation.id === focusedAutomationId) ?? null;
   const isEditingFocusedAutomation = Boolean(focusedAutomation && editingAutomationId === focusedAutomation.id);
 
   useEffect(() => {
@@ -70,11 +70,29 @@ export function App() {
     }
   }
 
+  async function deleteFocusedAutomation() {
+    if (!focusedAutomation) {
+      return;
+    }
+
+    if (!window.confirm(`Delete "${focusedAutomation.name}"?`)) {
+      return;
+    }
+
+    const didDelete = await workspace.deleteSavedAutomation(focusedAutomation.id);
+    if (didDelete) {
+      setFocusedAutomationId(null);
+      setEditingAutomationId(null);
+      workspace.resetEditWorkspace();
+      window.history.replaceState(null, "", "#new-automation");
+    }
+  }
+
   return (
     <main className="app-shell">
       <section className="app-workspace" aria-label="Automation builder">
-        <SavedAutomationCandidateList
-          savedAutomationCandidates={workspace.savedAutomationCandidates}
+        <SavedAutomationList
+          savedAutomations={workspace.savedAutomations}
           latestRunByAutomationId={workspace.latestRunByAutomationId}
           selectedAutomationId={focusedAutomationId}
           onSelectNew={selectNewAutomation}
@@ -139,13 +157,16 @@ export function App() {
               </div>
             </section>
           ) : focusedAutomation ? (
-            <SavedAutomationCandidateDetail
+            <SavedAutomationDetail
               automation={focusedAutomation}
               latestRun={workspace.latestRunByAutomationId[focusedAutomation.id]}
               runError={workspace.runErrors[focusedAutomation.id]}
+              deleteError={workspace.deleteError}
               runningAutomationId={workspace.runningAutomationId}
+              deletingAutomationId={workspace.deletingAutomationId}
               onRun={workspace.runAutomation}
               onEdit={startEditingAutomation}
+              onDelete={deleteFocusedAutomation}
               onApproval={workspace.decideApproval}
             />
           ) : (

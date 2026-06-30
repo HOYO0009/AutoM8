@@ -1,17 +1,17 @@
 import { Plus } from "lucide-react";
 
-import { SavedAutomationCandidate } from "../../shared/automationDraft";
+import { SavedAutomation } from "../../shared/automationDraft";
 import { AutomationRun } from "../../shared/automationRun";
 import { formatStatus } from "./formatStatus";
 
-export function SavedAutomationCandidateList({
-  savedAutomationCandidates,
+export function SavedAutomationList({
+  savedAutomations,
   latestRunByAutomationId,
   selectedAutomationId,
   onSelectNew,
   onSelectAutomation
 }: {
-  savedAutomationCandidates: SavedAutomationCandidate[];
+  savedAutomations: SavedAutomation[];
   latestRunByAutomationId: Record<string, AutomationRun>;
   selectedAutomationId: string | null;
   onSelectNew: () => void;
@@ -34,10 +34,10 @@ export function SavedAutomationCandidateList({
         New automation
       </a>
 
-      {savedAutomationCandidates.length === 0 ? <p className="saved-empty">Saved drafts appear here.</p> : null}
+      {savedAutomations.length === 0 ? <p className="saved-empty">Saved drafts appear here.</p> : null}
 
       <ol className="saved-list">
-        {savedAutomationCandidates.map((automation) => {
+        {savedAutomations.map((automation) => {
           const latestRun = latestRunByAutomationId[automation.id];
           const isSelected = selectedAutomationId === automation.id;
 

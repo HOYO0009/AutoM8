@@ -6,7 +6,7 @@ import {
   DraftNodeType,
   DraftStepDetails,
   nodeTypes,
-  SavedAutomationCandidate
+  SavedAutomation
 } from "./automationDraft.js";
 
 export type DraftValidationStage =
@@ -120,10 +120,10 @@ export function cloneDraftAutomation(draft: DraftAutomation): DraftAutomation {
   };
 }
 
-export function cloneSavedAutomationCandidate(savedAutomationCandidate: SavedAutomationCandidate): SavedAutomationCandidate {
+export function cloneSavedAutomation(savedAutomation: SavedAutomation): SavedAutomation {
   return {
-    ...savedAutomationCandidate,
-    steps: savedAutomationCandidate.steps.map((step) => ({
+    ...savedAutomation,
+    steps: savedAutomation.steps.map((step) => ({
       ...step,
       details: cloneDraftStepDetails(step.details)
     }))

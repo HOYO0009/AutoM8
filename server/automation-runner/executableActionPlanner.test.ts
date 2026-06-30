@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { DraftAutomationStep, SavedAutomationCandidate } from "../../shared/automationDraft.js";
+import { DraftAutomationStep, SavedAutomation } from "../../shared/automationDraft.js";
 import { actionRequiresApproval, createExecutableActionPlanner, createHeuristicExecutableActionPlan, validateAction, validateExecutableActionPlan } from "./executableActionPlanner.js";
 
 describe("createHeuristicExecutableActionPlan", () => {
   it("turns concrete Notepad instructions into deterministic actions", () => {
     const plan = createHeuristicExecutableActionPlan(
-      savedAutomationCandidate({
+      savedAutomation({
         steps: [
           {
             title: "Open Notepad",
@@ -27,7 +27,7 @@ describe("createHeuristicExecutableActionPlan", () => {
 
   it("adds approval before side-effect work and keeps ambiguous work non-deterministic", () => {
     const plan = createHeuristicExecutableActionPlan(
-      savedAutomationCandidate({
+      savedAutomation({
         steps: [
           {
             title: "Schedule event",
@@ -64,7 +64,7 @@ describe("createExecutableActionPlanner", () => {
     });
 
     const plan = await planner.createPlan(
-      savedAutomationCandidate({
+      savedAutomation({
         steps: [
           {
             title: "Open Notepad",
@@ -88,7 +88,7 @@ describe("createExecutableActionPlanner", () => {
     });
 
     const plan = await planner.createPlan(
-      savedAutomationCandidate({
+      savedAutomation({
         steps: [
           {
             title: "Open Notepad",
@@ -124,7 +124,7 @@ describe("createExecutableActionPlanner", () => {
       });
 
       const planPromise = planner.createPlan(
-        savedAutomationCandidate({
+        savedAutomation({
           steps: [
             {
               title: "Find target",
@@ -163,7 +163,7 @@ describe("createExecutableActionPlanner", () => {
 describe("validateExecutableActionPlan", () => {
   it("rejects invalid model actions", () => {
     expect(() =>
-      validateExecutableActionPlan(savedAutomationCandidate(), {
+      validateExecutableActionPlan(savedAutomation(), {
         steps: [
           {
             title: "Bad",
@@ -207,7 +207,7 @@ describe("actionRequiresApproval", () => {
   });
 });
 
-function savedAutomationCandidate(overrides: Partial<SavedAutomationCandidate> = {}): SavedAutomationCandidate {
+function savedAutomation(overrides: Partial<SavedAutomation> = {}): SavedAutomation {
   return {
     id: "saved-1",
     createdAt: "2026-06-24T11:00:00.000Z",

@@ -1,7 +1,7 @@
 import {
   ClarificationAnswer,
   DraftAutomationCreationResult,
-  SavedAutomationCandidate,
+  SavedAutomation,
   nodeTypes
 } from "../../shared/automationDraft.js";
 import type { ApiErrorDiagnostics } from "../../shared/apiResponses.js";
@@ -177,7 +177,7 @@ type ConfiguredDraftAutomationCreationConfig = DraftAutomationCreationConfig & {
 };
 
 export interface DraftAutomationCreationContext {
-  savedAutomationContext?: SavedAutomationCandidate;
+  savedAutomationContext?: SavedAutomation;
 }
 
 export class DraftAutomationCreationError extends Error {
@@ -275,7 +275,7 @@ function systemPromptFor(context: DraftAutomationCreationContext): string {
   return `${basePrompt} A savedAutomationContext means workflowPrompt is an edit request for that saved automation. Use the saved automation as the baseline, apply the requested change, and return the complete updated Draft Automation, not a patch or partial diff.`;
 }
 
-function draftContextForModel(savedAutomation: SavedAutomationCandidate) {
+function draftContextForModel(savedAutomation: SavedAutomation) {
   return {
     name: savedAutomation.name,
     summary: savedAutomation.summary,

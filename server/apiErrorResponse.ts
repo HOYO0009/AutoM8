@@ -1,7 +1,7 @@
 import { Response } from "express";
 
 import { DraftAutomationCreationError } from "./automation-builder/draftGenerator.js";
-import { SaveAutomationCandidateError } from "./automation-builder/savedAutomationCandidateStore.js";
+import { SaveAutomationError } from "./automation-builder/savedAutomationStore.js";
 import { ExecutableActionPlanningError } from "./automation-runner/executableActionPlanner.js";
 import { RunAutomationError } from "./automation-runner/automationRunStore.js";
 import type { ApiErrorDiagnostics } from "../shared/apiResponses.js";
@@ -43,7 +43,7 @@ function toApiError(error: unknown): {
     };
   }
 
-  if (error instanceof SaveAutomationCandidateError) {
+  if (error instanceof SaveAutomationError) {
     return {
       code: error.code,
       message: error.message,
