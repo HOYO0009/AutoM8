@@ -1,5 +1,6 @@
 import {
   ClarificationAnswer,
+  DraftAutomationStep,
   DraftAutomationCreationResult,
   SavedAutomation,
   nodeTypes
@@ -16,6 +17,31 @@ import type { OpenRouterStructuredOutputResult } from "../llm/openRouterStructur
 const LLM_REQUEST_TIMEOUT_MS = 90_000;
 const INVALID_LLM_RESPONSE_MESSAGE =
   "The configured draft automation creator did not return the required creation result shape. Choose an OpenRouter model that supports structured outputs, then try again.";
+
+const V1_EXECUTION_BLOCKERS = [
+  "specific app, file, spreadsheet, or website",
+  "spreadsheet sheet, tab, range, column, or metric location",
+  "sender account or application identity",
+  "recipients or team destination",
+  "schedule time and time zone",
+  "external side-effect target"
+] as const;
+
+type DraftSemanticValidationStage =
+  | "draft-semantic-meta-step"
+  | "draft-semantic-missing-spreadsheet-source"
+  | "draft-semantic-missing-spreadsheet-location"
+  | "draft-semantic-missing-email-identity"
+  | "draft-semantic-missing-email-recipient"
+  | "draft-semantic-missing-schedule";
+
+type DraftCreationValidationStage = DraftValidationStage | DraftSemanticValidationStage;
+
+interface DraftAutomationCreationValidationContext {
+  workflowPrompt: string;
+  clarificationAnswers: ClarificationAnswer[];
+  savedAutomationContext?: SavedAutomation;
+}
 
 const DRAFT_STEP_DETAILS_SCHEMA = {
   type: "object",
@@ -160,7 +186,9 @@ const DRAFT_AUTOMATION_REPAIR_SCHEMA_SUMMARY = {
     "draft_created requires a complete Draft Automation and questions []",
     "Clarification Questions require id, question, and reason",
     "Draft steps require title, nodeType, description, and details",
-    "Draft Step Details require inputs, outputs, fallbacks, and verification arrays"
+    "Draft Step Details require inputs, outputs, fallbacks, and verification arrays",
+    "Draft steps must be chronological workflow-action nodes from the user's automation, not AutoM8 status, explanation, or creation-process nodes",
+    "draft_created requires all applicable v1 Execution Blockers to be resolved by the workflow prompt, Clarification Answers, or saved automation context"
   ]
 } as const;
 
@@ -233,14 +261,7 @@ export async function createDraftAutomationCreationResult(
         ...(context.savedAutomationContext
           ? { savedAutomationContext: draftContextForModel(context.savedAutomationContext) }
           : {}),
-        v1ExecutionBlockers: [
-          "specific app, file, spreadsheet, or website",
-          "spreadsheet sheet, tab, range, column, or metric location",
-          "sender account or application identity",
-          "recipients or team destination",
-          "schedule time and time zone",
-          "external side-effect target"
-        ]
+        v1ExecutionBlockers: V1_EXECUTION_BLOCKERS
       })
     }
   ];
@@ -261,12 +282,16 @@ export async function createDraftAutomationCreationResult(
     throw structuredOutputFailureError(result, llmConfig.model);
   }
 
-  return validateOrRepairCreationResult(result.parsedJson, llmConfig);
+  return validateOrRepairCreationResult(result.parsedJson, llmConfig, {
+    workflowPrompt: trimmedPrompt,
+    clarificationAnswers,
+    savedAutomationContext: context.savedAutomationContext
+  });
 }
 
 function systemPromptFor(context: DraftAutomationCreationContext): string {
   const basePrompt =
-    "You create Draft Automation Creation Results for AutoM8. Return only JSON that matches the schema. If execution-critical details are missing, return status needs_clarification with draft null and specific Clarification Questions. Do not guess file names, spreadsheet tabs or ranges, app names, websites, sender accounts, recipients, schedules, time zones, or side-effect targets. These missing facts are Execution Blockers. Clarification Answers include questionId, question, reason, and answer. Treat each Clarification Answer as context for an answered Execution Blocker. When an answer resolves a blocker, incorporate that fact into the relevant Draft Step Details. If an answer is insufficient, ask a new specific Clarification Question that names the remaining missing fact instead of repeating a generic blocker. When all Execution Blockers are answered, return status draft_created with questions [] and a Draft Automation whose steps include Draft Step Details for inputs, outputs, fallbacks, and verification. nodeType must be one of deterministic, perception, llm, control, verification.";
+    "You create Draft Automation Creation Results for AutoM8. Return only JSON that matches the schema. If execution-critical details are missing, return status needs_clarification with draft null and specific Clarification Questions. Do not guess file names, spreadsheet tabs or ranges, app names, websites, sender accounts, recipients, schedules, time zones, or side-effect targets. These missing facts are Execution Blockers. Clarification Answers include questionId, question, reason, and answer. Treat each Clarification Answer as context for an answered Execution Blocker. When an answer resolves a blocker, incorporate that fact into the relevant Draft Step Details. If an answer is insufficient, ask a new specific Clarification Question that names the remaining missing fact instead of repeating a generic blocker. When all Execution Blockers are answered, return status draft_created with questions [] and a Draft Automation whose steps include Draft Step Details for inputs, outputs, fallbacks, and verification. Draft Automation steps must be chronological workflow-action nodes from the user's automation, not AutoM8 status, explanation, creation-result, or blocker-resolution nodes. Do not create nodes named Execution Blocker Resolution, Status: Draft Created, Draft Created, or similar. If a schedule is fully specified, model it as the first control step; if a schedule is vague, ask a Clarification Question for the exact time and time zone. nodeType must be one of deterministic, perception, llm, control, verification.";
 
   if (!context.savedAutomationContext) {
     return basePrompt;
@@ -285,9 +310,10 @@ function draftContextForModel(savedAutomation: SavedAutomation) {
 
 async function validateOrRepairCreationResult(
   value: unknown,
-  config: ConfiguredDraftAutomationCreationConfig
+  config: ConfiguredDraftAutomationCreationConfig,
+  validationContext: DraftAutomationCreationValidationContext
 ): Promise<DraftAutomationCreationResult> {
-  const validation = validateCreationResult(value);
+  const validation = validateCreationResult(value, validationContext);
   if (validation.ok) {
     return validation.result;
   }
@@ -309,6 +335,13 @@ async function validateOrRepairCreationResult(
         content: JSON.stringify({
           invalidStage: validation.stage,
           allowedSchemaSummary: DRAFT_AUTOMATION_REPAIR_SCHEMA_SUMMARY,
+          workflowPrompt: validationContext.workflowPrompt,
+          clarificationAnswers: validationContext.clarificationAnswers,
+          ...(validationContext.savedAutomationContext
+            ? { savedAutomationContext: draftContextForModel(validationContext.savedAutomationContext) }
+            : {}),
+          v1ExecutionBlockers: V1_EXECUTION_BLOCKERS,
+          semanticFailureReason: semanticFailureReasonForStage(validation.stage),
           priorParsedJson: value
         })
       }
@@ -322,7 +355,7 @@ async function validateOrRepairCreationResult(
     throw structuredOutputFailureError(repairResult, config.model);
   }
 
-  const repairValidation = validateCreationResult(repairResult.parsedJson);
+  const repairValidation = validateCreationResult(repairResult.parsedJson, validationContext);
   if (repairValidation.ok) {
     return repairValidation.result;
   }
@@ -331,7 +364,8 @@ async function validateOrRepairCreationResult(
 }
 
 function validateCreationResult(
-  value: unknown
+  value: unknown,
+  validationContext: DraftAutomationCreationValidationContext
 ):
   | {
       ok: true;
@@ -339,10 +373,16 @@ function validateCreationResult(
     }
   | {
       ok: false;
-      stage: DraftValidationStage;
+      stage: DraftCreationValidationStage;
     } {
   try {
-    return { ok: true, result: validateDraftAutomationCreationResultShape(value) };
+    const result = validateDraftAutomationCreationResultShape(value);
+    const semanticStage = semanticFailureStageFor(result, validationContext);
+    if (semanticStage) {
+      return { ok: false, stage: semanticStage };
+    }
+
+    return { ok: true, result };
   } catch (error) {
     if (error instanceof DraftValidationError) {
       return { ok: false, stage: error.stage };
@@ -350,6 +390,161 @@ function validateCreationResult(
 
     throw error;
   }
+}
+
+function semanticFailureStageFor(
+  result: DraftAutomationCreationResult,
+  validationContext: DraftAutomationCreationValidationContext
+): DraftSemanticValidationStage | undefined {
+  if (result.status !== "draft_created") {
+    return undefined;
+  }
+
+  if (result.draft.steps.some(isMetaDraftStep)) {
+    return "draft-semantic-meta-step";
+  }
+
+  return missingExecutionBlockerStageFor(validationContext);
+}
+
+function isMetaDraftStep(step: DraftAutomationStep): boolean {
+  const text = `${step.title} ${step.description}`.toLowerCase();
+  return (
+    /\bexecution blocker\b/.test(text) ||
+    /\bstatus\s*:/.test(text) ||
+    /\bdraft automation created\b/.test(text) ||
+    /\bdraft created\b/.test(text) ||
+    /\bcreation result\b/.test(text) ||
+    /\bcreated successfully\b/.test(text)
+  );
+}
+
+function missingExecutionBlockerStageFor(
+  validationContext: DraftAutomationCreationValidationContext
+): DraftSemanticValidationStage | undefined {
+  const promptText = validationContext.workflowPrompt.toLowerCase();
+  const sourceText = semanticSourceText(validationContext);
+
+  if (mentionsSpreadsheet(promptText) && !hasConcreteSpreadsheetSource(sourceText, validationContext.clarificationAnswers)) {
+    return "draft-semantic-missing-spreadsheet-source";
+  }
+
+  if (
+    mentionsSpreadsheetExtraction(promptText) &&
+    !hasConcreteSpreadsheetLocation(sourceText, validationContext.clarificationAnswers)
+  ) {
+    return "draft-semantic-missing-spreadsheet-location";
+  }
+
+  if (mentionsEmail(promptText) && !hasConcreteEmailIdentity(sourceText, validationContext.clarificationAnswers)) {
+    return "draft-semantic-missing-email-identity";
+  }
+
+  if (mentionsEmail(promptText) && !hasConcreteEmailRecipient(sourceText, validationContext.clarificationAnswers)) {
+    return "draft-semantic-missing-email-recipient";
+  }
+
+  if (mentionsSchedule(promptText) && !hasConcreteSchedule(sourceText, validationContext.clarificationAnswers)) {
+    return "draft-semantic-missing-schedule";
+  }
+
+  return undefined;
+}
+
+function semanticSourceText(validationContext: DraftAutomationCreationValidationContext): string {
+  return [
+    validationContext.workflowPrompt,
+    ...validationContext.clarificationAnswers.map((answer) =>
+      [answer.questionId, answer.question, answer.reason, answer.answer].join(" ")
+    ),
+    validationContext.savedAutomationContext ? JSON.stringify(draftContextForModel(validationContext.savedAutomationContext)) : ""
+  ]
+    .join("\n")
+    .toLowerCase();
+}
+
+function mentionsSpreadsheet(text: string): boolean {
+  return /\b(spreadsheet|workbook|excel|csv)\b/.test(text);
+}
+
+function mentionsSpreadsheetExtraction(text: string): boolean {
+  return mentionsSpreadsheet(text) && /\b(collect|copy|extract|find|get|read|revenue|total|metric)\b/.test(text);
+}
+
+function mentionsEmail(text: string): boolean {
+  return /\b(email|mail|gmail|outlook)\b/.test(text);
+}
+
+function mentionsSchedule(text: string): boolean {
+  return /\b(every\s+(morning|afternoon|evening|night|day|weekday|week|month)|daily|weekly|monthly|each\s+(morning|day|weekday|week|month))\b/.test(
+    text
+  );
+}
+
+function hasConcreteSpreadsheetSource(text: string, answers: ClarificationAnswer[]): boolean {
+  return (
+    hasAnsweredBlocker(answers, /\b(spreadsheet|workbook|excel|csv|file|source)\b/) ||
+    /\b[a-z]:[\\/]/i.test(text) ||
+    /\b[\w .-]+\.(xlsx|xls|csv|ods)\b/i.test(text) ||
+    /https?:\/\//i.test(text)
+  );
+}
+
+function hasConcreteSpreadsheetLocation(text: string, answers: ClarificationAnswer[]): boolean {
+  return (
+    hasAnsweredBlocker(answers, /\b(location|tab|sheet|range|column|cell|row|metric)\b/) ||
+    /\b(tab|sheet|worksheet|range|cell|column|row|named range)\b/.test(text)
+  );
+}
+
+function hasConcreteEmailIdentity(text: string, answers: ClarificationAnswer[]): boolean {
+  return (
+    hasAnsweredBlocker(answers, /\b(sender|account|identity|email app|application|from)\b/) ||
+    /\b(from|sender|account)\b.{0,80}(@|gmail|outlook|mail)/i.test(text)
+  );
+}
+
+function hasConcreteEmailRecipient(text: string, answers: ClarificationAnswer[]): boolean {
+  return hasAnsweredBlocker(answers, /\b(recipient|receive|destination|team email|send to|to)\b/) || /\S+@\S+\.\S+/.test(text);
+}
+
+function hasConcreteSchedule(text: string, answers: ClarificationAnswer[]): boolean {
+  return hasAnsweredBlocker(answers, /\b(schedule|time zone|timezone|what time|when)\b/) || (hasTime(text) && hasTimeZone(text));
+}
+
+function hasAnsweredBlocker(answers: ClarificationAnswer[], blockerPattern: RegExp): boolean {
+  return answers.some((answer) => blockerPattern.test([answer.questionId, answer.question, answer.reason].join(" ").toLowerCase()));
+}
+
+function hasTime(text: string): boolean {
+  return /\b((1[0-2]|0?[1-9])(:[0-5]\d)?\s*(a\.?m\.?|p\.?m\.?)|([01]?\d|2[0-3]):[0-5]\d|noon|midnight)\b/i.test(
+    text
+  );
+}
+
+function hasTimeZone(text: string): boolean {
+  return /\b(utc|gmt|est|edt|cst|cdt|mst|mdt|pst|pdt|sgt|hkt|jst|cet|cest|bst|aest|aedt|asia\/[a-z_]+|america\/[a-z_]+|europe\/[a-z_]+|singapore time|eastern time|pacific time|central time|mountain time|time zone|timezone)\b/i.test(
+    text
+  );
+}
+
+function semanticFailureReasonForStage(stage: DraftCreationValidationStage): string | undefined {
+  const reasons: Record<DraftSemanticValidationStage, string> = {
+    "draft-semantic-meta-step":
+      "Draft steps must be chronological workflow action nodes, not AutoM8 status, explanation, creation-result, or blocker-resolution nodes.",
+    "draft-semantic-missing-spreadsheet-source":
+      "The workflow mentions a spreadsheet, but the prompt context does not identify the exact spreadsheet source.",
+    "draft-semantic-missing-spreadsheet-location":
+      "The workflow reads spreadsheet data, but the prompt context does not identify the sheet, tab, range, column, cell, or metric location.",
+    "draft-semantic-missing-email-identity":
+      "The workflow drafts email, but the prompt context does not identify the sender account or email application identity.",
+    "draft-semantic-missing-email-recipient":
+      "The workflow drafts email, but the prompt context does not identify the recipient or team destination.",
+    "draft-semantic-missing-schedule":
+      "The workflow describes a recurring schedule, but the prompt context does not identify the exact time and time zone."
+  };
+
+  return stage in reasons ? reasons[stage as DraftSemanticValidationStage] : undefined;
 }
 
 function structuredOutputFailureError(

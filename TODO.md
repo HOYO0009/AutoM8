@@ -20,7 +20,7 @@
 ## Completed
 
 - [x] Documentation foundation.
-- [x] Automation Builder / prompt-to-draft-automation: block incomplete drafts with Clarification Questions, send full Clarification Answer context, repair one parsed invalid model result, and show safe diagnostics when generation still cannot be validated.
+- [x] Automation Builder / prompt-to-draft-automation: block incomplete drafts with Clarification Questions, send full Clarification Answer context, reject meta/status draft nodes and unresolved blockers, repair one parsed invalid model result, and show safe diagnostics when generation still cannot be validated.
 - [x] Automation Builder / save-draft-automation: save a generated draft as a locally persisted saved automation and delete saved automations without active runs.
 - [x] Automation Builder / edit-saved-automation-with-prompt: use a saved automation as context, preview a complete edited draft, and replace the saved automation in place.
 - [x] Automation Runner / Run deterministic saved automation: execute concrete saved actions through the Windows desktop driver and show step evidence.

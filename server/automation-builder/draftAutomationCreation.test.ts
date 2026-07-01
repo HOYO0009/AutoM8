@@ -100,7 +100,7 @@ describe("createDraftAutomationCreationResult", () => {
     );
   });
 
-  it("uses Clarification Answers to create a Draft Automation with Draft Step Details", async () => {
+  it("uses Clarification Answers to create an ordered Draft Automation with Draft Step Details", async () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
       jsonResponse({
         choices: [
@@ -112,6 +112,17 @@ describe("createDraftAutomationCreationResult", () => {
                   name: "Daily Sales Summary",
                   summary: "Collect yesterday's revenue and draft a team email.",
                   steps: [
+                    {
+                      title: "Run every morning",
+                      nodeType: "control",
+                      description: "Start the workflow every morning at the configured time.",
+                      details: {
+                        inputs: ["Schedule: 8:00 AM Asia/Singapore"],
+                        outputs: ["Workflow run is started"],
+                        fallbacks: ["Ask the user to confirm the schedule if the trigger is unavailable"],
+                        verification: ["Workflow only starts at the configured morning schedule"]
+                      }
+                    },
                     {
                       title: "Open sales spreadsheet",
                       nodeType: "deterministic",
@@ -179,6 +190,12 @@ describe("createDraftAutomationCreationResult", () => {
         question: "Who should receive the team email summary?",
         reason: "Draft Automation Creation needs a concrete destination before modeling the email step.",
         answer: "team@example.com"
+      },
+      {
+        questionId: "schedule-time-zone",
+        question: "What exact morning schedule and time zone should AutoM8 use?",
+        reason: "AutoM8 needs an exact schedule before modeling the trigger.",
+        answer: "Every morning at 8:00 AM Asia/Singapore"
       }
     ];
 
@@ -193,14 +210,121 @@ describe("createDraftAutomationCreationResult", () => {
     );
 
     expect(creationResult.status).toBe("draft_created");
-    expect(creationResult.draft?.steps[0].details.inputs).toEqual(["C:/Reports/Sales.xlsx"]);
-    expect(creationResult.draft?.steps[1].details.outputs).toEqual(["Yesterday's total revenue value"]);
-    expect(creationResult.draft?.steps[2].details.verification).toEqual([
+    expect(creationResult.draft?.steps.map((step) => step.title)).toEqual([
+      "Run every morning",
+      "Open sales spreadsheet",
+      "Extract yesterday's total revenue",
+      "Draft team email"
+    ]);
+    expect(creationResult.draft?.steps[0].nodeType).toBe("control");
+    expect(creationResult.draft?.steps[1].details.inputs).toEqual(["C:/Reports/Sales.xlsx"]);
+    expect(creationResult.draft?.steps[2].details.outputs).toEqual(["Yesterday's total revenue value"]);
+    expect(creationResult.draft?.steps[3].details.verification).toEqual([
       "Email draft contains the revenue value and remains unsent"
     ]);
     const requestBody = requestBodyFor(fetchImpl);
     expect(requestBody.messages[0].content).toContain("Clarification Answers include questionId, question, reason, and answer");
     expect(JSON.parse(requestBody.messages[1].content).clarificationAnswers).toEqual(clarificationAnswers);
+  });
+
+  it("repairs screenshot-style meta nodes instead of accepting them as a Draft Automation", async () => {
+    const screenshotStyleDraft = {
+      status: "draft_created",
+      draft: {
+        name: "Generate Daily Revenue Summary Email",
+        summary:
+          "The system has prepared a draft workflow that will automatically compile yesterday's revenue and compose a team email.",
+        steps: [
+          {
+            title: "Generate Daily Revenue Summary Email",
+            nodeType: "deterministic",
+            description: "Open the sales spreadsheet and extract yesterday's total revenue.",
+            details: {
+              inputs: ["sales spreadsheet"],
+              outputs: ["daily revenue summary"],
+              fallbacks: [],
+              verification: ["Draft step details confirm revenue extraction"]
+            }
+          },
+          {
+            title: "Execution Blocker Resolution",
+            nodeType: "perception",
+            description: "Draft a concise email to the team summarizing yesterday's revenue.",
+            details: {
+              inputs: ["daily revenue summary"],
+              outputs: ["email draft"],
+              fallbacks: [],
+              verification: ["Ensure email includes correct revenue figure"]
+            }
+          },
+          {
+            title: "Status: Draft Created",
+            nodeType: "deterministic",
+            description: "Draft Automation created successfully with detailed steps.",
+            details: {
+              inputs: ["sales spreadsheet", "yesterday's total revenue"],
+              outputs: ["summary email"],
+              fallbacks: [],
+              verification: ["Confirm email content matches extracted revenue"]
+            }
+          }
+        ]
+      },
+      questions: []
+    };
+    const fetchImpl = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify(screenshotStyleDraft)
+              }
+            }
+          ]
+        })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  status: "needs_clarification",
+                  draft: null,
+                  questions: [
+                    {
+                      id: "sales-spreadsheet",
+                      question: "Which exact sales spreadsheet should AutoM8 open?",
+                      reason: "The workflow names a spreadsheet but not the exact source."
+                    }
+                  ]
+                })
+              }
+            }
+          ]
+        })
+      );
+
+    const creationResult = await createDraftAutomationCreationResult(
+      "Every morning, open the sales spreadsheet, collect yesterday's total revenue, and draft a short email summary for the team.",
+      [],
+      {
+        apiKey: "test-key",
+        model: "test-model",
+        fetchImpl
+      }
+    );
+
+    expect(creationResult.status).toBe("needs_clarification");
+    expect(creationResult.draft).toBeNull();
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    const repairPayload = JSON.parse(requestBodyFor(fetchImpl, 1).messages[1].content);
+    expect(repairPayload.invalidStage).toBe("draft-semantic-meta-step");
+    expect(repairPayload.semanticFailureReason).toContain("workflow action nodes");
+    expect(repairPayload.workflowPrompt).toContain("Every morning");
+    expect(repairPayload.clarificationAnswers).toEqual([]);
+    expect(repairPayload.v1ExecutionBlockers).toContain("specific app, file, spreadsheet, or website");
   });
 
   it("includes saved automation context when creating an edited Draft Automation", async () => {
@@ -510,6 +634,83 @@ describe("createDraftAutomationCreationResult", () => {
     expect(warnSpy).toHaveBeenCalledWith("AutoM8 draft automation creator returned an invalid response.", {
       model: "openrouter/free",
       stage: "creation-result-draft",
+      providerStatus: 200
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    warnSpy.mockRestore();
+  });
+
+  it("reports semantic draft failures with safe diagnostics after repair fails", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const metaDraftResponse = {
+      status: "draft_created",
+      draft: {
+        name: "Generate Daily Revenue Summary Email",
+        summary: "Create a daily revenue email draft.",
+        steps: [
+          {
+            title: "Status: Draft Created",
+            nodeType: "deterministic",
+            description: "Draft Automation created successfully with detailed steps.",
+            details: {
+              inputs: ["sales spreadsheet"],
+              outputs: ["summary email"],
+              fallbacks: [],
+              verification: ["Confirm email content matches extracted revenue"]
+            }
+          }
+        ]
+      },
+      questions: []
+    };
+    const fetchImpl = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify(metaDraftResponse)
+              }
+            }
+          ]
+        })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify(metaDraftResponse)
+              }
+            }
+          ]
+        })
+      );
+
+    await expect(
+      createDraftAutomationCreationResult(
+        "Every morning, open the sales spreadsheet, collect yesterday's total revenue, and draft a short email summary for the team.",
+        [],
+        {
+          apiKey: "test-key",
+          model: "test-model",
+          fetchImpl
+        }
+      )
+    ).rejects.toMatchObject({
+      code: "INVALID_LLM_RESPONSE",
+      diagnostics: {
+        failureType: "invalid_creation_result_shape",
+        model: "test-model",
+        stage: "draft-semantic-meta-step",
+        providerStatus: 200,
+        guidance: expect.stringContaining("did not match AutoM8")
+      }
+    });
+
+    expect(warnSpy).toHaveBeenCalledWith("AutoM8 draft automation creator returned an invalid response.", {
+      model: "test-model",
+      stage: "draft-semantic-meta-step",
       providerStatus: 200
     });
     expect(fetchImpl).toHaveBeenCalledTimes(2);
