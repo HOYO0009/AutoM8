@@ -1,8 +1,9 @@
-import {
+import type {
   ApiErrorDiagnostics,
   ApiErrorResponse,
   AutomationRunResponse,
   AutomationRunsResponse,
+  ClarificationAnswerPickerResponse,
   DeleteSavedAutomationResponse,
   DraftAutomationCreationResponse,
   ReplaceSavedAutomationResponse,
@@ -10,13 +11,14 @@ import {
   SavedAutomationsResponse,
   SaveDraftAutomationResponse
 } from "../../shared/apiResponses";
-import {
+import type {
   ClarificationAnswer,
+  ClarificationAnswerKind,
   DraftAutomation,
   DraftAutomationCreationResult,
   SavedAutomation
 } from "../../shared/automationDraft";
-import { AutomationRun } from "../../shared/automationRun";
+import type { AutomationRun } from "../../shared/automationRun";
 
 export class ApiClientError extends Error {
   constructor(
@@ -46,6 +48,22 @@ export async function createDraftAutomationCreationResult(
   );
 
   return payload.creationResult;
+}
+
+export async function pickClarificationAnswer(answerKind: ClarificationAnswerKind): Promise<string | null> {
+  const payload = await requestJson<ClarificationAnswerPickerResponse>(
+    "/api/clarification-answer-picker",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ answerKind })
+    },
+    "AutoM8 could not open the local picker."
+  );
+
+  return payload.selectedPath;
 }
 
 export async function fetchSavedAutomations(): Promise<SavedAutomation[]> {

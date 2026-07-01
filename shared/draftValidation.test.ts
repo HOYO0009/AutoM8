@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { DraftStepDetails } from "./automationDraft.js";
+import type { DraftStepDetails } from "./automationDraft.js";
 import {
   cloneDraftAutomation,
   cloneSavedAutomation,
@@ -105,7 +105,8 @@ describe("validateDraftAutomationCreationResultShape", () => {
           {
             id: "sales-spreadsheet",
             question: "Which sales spreadsheet should AutoM8 open?",
-            reason: "AutoM8 needs the exact source before it can create a runnable draft."
+            reason: "AutoM8 needs the exact source before it can create a runnable draft.",
+            answerKind: "local_spreadsheet"
           }
         ]
       })
@@ -116,7 +117,8 @@ describe("validateDraftAutomationCreationResultShape", () => {
         {
           id: "sales-spreadsheet",
           question: "Which sales spreadsheet should AutoM8 open?",
-          reason: "AutoM8 needs the exact source before it can create a runnable draft."
+          reason: "AutoM8 needs the exact source before it can create a runnable draft.",
+          answerKind: "local_spreadsheet"
         }
       ]
     });
@@ -169,11 +171,43 @@ describe("validateDraftAutomationCreationResultShape", () => {
           {
             id: "still-missing",
             question: "What is missing?",
-            reason: "A created draft cannot have unanswered blockers."
+            reason: "A created draft cannot have unanswered blockers.",
+            answerKind: "text"
           }
         ]
       })
     ).toThrow(expect.objectContaining({ stage: "creation-result-questions" }));
+  });
+
+  it("rejects clarification questions without supported answer kinds", () => {
+    expect(() =>
+      validateDraftAutomationCreationResultShape({
+        status: "needs_clarification",
+        draft: null,
+        questions: [
+          {
+            id: "sales-spreadsheet",
+            question: "Which sales spreadsheet should AutoM8 open?",
+            reason: "AutoM8 needs the exact source before it can create a runnable draft."
+          }
+        ]
+      })
+    ).toThrow(expect.objectContaining({ stage: "clarification-question-answer-kind" }));
+
+    expect(() =>
+      validateDraftAutomationCreationResultShape({
+        status: "needs_clarification",
+        draft: null,
+        questions: [
+          {
+            id: "sales-spreadsheet",
+            question: "Which sales spreadsheet should AutoM8 open?",
+            reason: "AutoM8 needs the exact source before it can create a runnable draft.",
+            answerKind: "website"
+          }
+        ]
+      })
+    ).toThrow(expect.objectContaining({ stage: "clarification-question-answer-kind" }));
   });
 });
 

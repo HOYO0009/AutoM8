@@ -1,9 +1,9 @@
-import {
+import { clarificationAnswerKinds, nodeTypes } from "../../shared/automationDraft.js";
+import type {
   ClarificationAnswer,
   DraftAutomationStep,
   DraftAutomationCreationResult,
-  SavedAutomation,
-  nodeTypes
+  SavedAutomation
 } from "../../shared/automationDraft.js";
 import type { ApiErrorDiagnostics } from "../../shared/apiResponses.js";
 import {
@@ -147,9 +147,15 @@ const CLARIFICATION_QUESTION_SCHEMA = {
       type: "string",
       minLength: 1,
       description: "Short reason this answer is required before Draft Automation Creation."
+    },
+    answerKind: {
+      type: "string",
+      enum: clarificationAnswerKinds,
+      description:
+        "Use local_spreadsheet for exact spreadsheet/workbook/CSV source questions, local_file for exact non-spreadsheet file questions, and text for all other clarification answers."
     }
   },
-  required: ["id", "question", "reason"]
+  required: ["id", "question", "reason", "answerKind"]
 } as const;
 
 const DRAFT_AUTOMATION_CREATION_RESULT_SCHEMA = {
@@ -184,7 +190,8 @@ const DRAFT_AUTOMATION_REPAIR_SCHEMA_SUMMARY = {
   resultRules: [
     "needs_clarification requires draft null and one or more Clarification Questions",
     "draft_created requires a complete Draft Automation and questions []",
-    "Clarification Questions require id, question, and reason",
+    "Clarification Questions require id, question, reason, and answerKind",
+    "Clarification Question answerKind must be text, local_file, or local_spreadsheet",
     "Draft steps require title, nodeType, description, and details",
     "Draft Step Details require inputs, outputs, fallbacks, and verification arrays",
     "Draft steps must be chronological workflow-action nodes from the user's automation, not AutoM8 status, explanation, or creation-process nodes",
@@ -291,7 +298,7 @@ export async function createDraftAutomationCreationResult(
 
 function systemPromptFor(context: DraftAutomationCreationContext): string {
   const basePrompt =
-    "You create Draft Automation Creation Results for AutoM8. Return only JSON that matches the schema. If execution-critical details are missing, return status needs_clarification with draft null and specific Clarification Questions. Do not guess file names, spreadsheet tabs or ranges, app names, websites, sender accounts, recipients, schedules, time zones, or side-effect targets. These missing facts are Execution Blockers. Clarification Answers include questionId, question, reason, and answer. Treat each Clarification Answer as context for an answered Execution Blocker. When an answer resolves a blocker, incorporate that fact into the relevant Draft Step Details. If an answer is insufficient, ask a new specific Clarification Question that names the remaining missing fact instead of repeating a generic blocker. When all Execution Blockers are answered, return status draft_created with questions [] and a Draft Automation whose steps include Draft Step Details for inputs, outputs, fallbacks, and verification. Draft Automation steps must be chronological workflow-action nodes from the user's automation, not AutoM8 status, explanation, creation-result, or blocker-resolution nodes. Do not create nodes named Execution Blocker Resolution, Status: Draft Created, Draft Created, or similar. If a schedule is fully specified, model it as the first control step; if a schedule is vague, ask a Clarification Question for the exact time and time zone. nodeType must be one of deterministic, perception, llm, control, verification.";
+    "You create Draft Automation Creation Results for AutoM8. Return only JSON that matches the schema. If execution-critical details are missing, return status needs_clarification with draft null and specific Clarification Questions. Clarification Questions include id, question, reason, and answerKind. Use answerKind local_spreadsheet for exact spreadsheet, workbook, Excel, or CSV source questions; use local_file for exact non-spreadsheet file questions; use text for apps, websites, accounts, recipients, schedules, spreadsheet tabs, ranges, columns, cells, metrics, and other answers. Do not guess file names, spreadsheet tabs or ranges, app names, websites, sender accounts, recipients, schedules, time zones, or side-effect targets. These missing facts are Execution Blockers. Clarification Answers include questionId, question, reason, and answer. Treat each Clarification Answer as context for an answered Execution Blocker. When an answer resolves a blocker, incorporate that fact into the relevant Draft Step Details. If an answer is insufficient, ask a new specific Clarification Question that names the remaining missing fact instead of repeating a generic blocker. When all Execution Blockers are answered, return status draft_created with questions [] and a Draft Automation whose steps include Draft Step Details for inputs, outputs, fallbacks, and verification. Draft Automation steps must be chronological workflow-action nodes from the user's automation, not AutoM8 status, explanation, creation-result, or blocker-resolution nodes. Do not create nodes named Execution Blocker Resolution, Status: Draft Created, Draft Created, or similar. If a schedule is fully specified, model it as the first control step; if a schedule is vague, ask a Clarification Question for the exact time and time zone. nodeType must be one of deterministic, perception, llm, control, verification.";
 
   if (!context.savedAutomationContext) {
     return basePrompt;

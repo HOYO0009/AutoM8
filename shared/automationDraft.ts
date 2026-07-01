@@ -8,6 +8,31 @@ export const nodeTypes = [
 
 export type DraftNodeType = (typeof nodeTypes)[number];
 
+export const clarificationAnswerKinds = [
+  "text",
+  "local_file",
+  "local_spreadsheet"
+] as const;
+
+export type ClarificationAnswerKind = (typeof clarificationAnswerKinds)[number];
+
+export const pickerBackedClarificationAnswerKinds = [
+  "local_file",
+  "local_spreadsheet"
+] as const;
+
+export type PickerBackedClarificationAnswerKind = (typeof pickerBackedClarificationAnswerKinds)[number];
+
+export function isClarificationAnswerKind(value: unknown): value is ClarificationAnswerKind {
+  return clarificationAnswerKinds.includes(value as ClarificationAnswerKind);
+}
+
+export function isPickerBackedClarificationAnswerKind(
+  value: unknown
+): value is PickerBackedClarificationAnswerKind {
+  return pickerBackedClarificationAnswerKinds.includes(value as PickerBackedClarificationAnswerKind);
+}
+
 export interface DraftStepDetails {
   inputs: string[];
   outputs: string[];
@@ -32,6 +57,7 @@ export interface ClarificationQuestion {
   id: string;
   question: string;
   reason: string;
+  answerKind: ClarificationAnswerKind;
 }
 
 export interface ClarificationAnswer {

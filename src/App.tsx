@@ -5,6 +5,7 @@ import { ClarificationPanel } from "./automationBuilder/ClarificationPanel";
 import { DraftPreview } from "./automationBuilder/DraftPreview";
 import { EmptyPreview } from "./automationBuilder/EmptyPreview";
 import { useAutomationWorkspace } from "./automationBuilder/useAutomationWorkspace";
+import { pickClarificationAnswer } from "./api/autom8Api";
 import { SavedAutomationDetail } from "./automationRunner/SavedAutomationDetail";
 import { SavedAutomationList } from "./automationRunner/SavedAutomationList";
 
@@ -141,6 +142,7 @@ export function App() {
                     isGenerating={workspace.isGeneratingEdit}
                     canSubmit={workspace.canSubmitEditClarifications}
                     onAnswerChange={workspace.updateEditClarificationAnswer}
+                    onPickAnswer={pickClarificationAnswer}
                     onSubmit={() => workspace.submitEditClarificationAnswers(focusedAutomation.id)}
                     description="AutoM8 needs these facts before it can create an edited Draft Automation."
                     submitLabel="Create edited draft"
@@ -197,6 +199,7 @@ export function App() {
                     isGenerating={workspace.isGenerating}
                     canSubmit={workspace.canSubmitClarifications}
                     onAnswerChange={workspace.updateClarificationAnswer}
+                    onPickAnswer={pickClarificationAnswer}
                     onSubmit={workspace.submitClarificationAnswers}
                   />
                 ) : (

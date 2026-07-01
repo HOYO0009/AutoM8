@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { SavedAutomation } from "../../shared/automationDraft.js";
 import { createDraftAutomationCreationResult } from "./draftAutomationCreation.js";
+import type { SavedAutomation } from "../../shared/automationDraft.js";
 
 describe("createDraftAutomationCreationResult", () => {
   it("rejects an empty prompt", async () => {
@@ -36,12 +36,14 @@ describe("createDraftAutomationCreationResult", () => {
                   {
                     id: "sales-spreadsheet",
                     question: "Which sales spreadsheet should AutoM8 open?",
-                    reason: "The workflow names a spreadsheet but not the exact source."
+                    reason: "The workflow names a spreadsheet but not the exact source.",
+                    answerKind: "local_spreadsheet"
                   },
                   {
                     id: "email-recipients",
                     question: "Who should receive the team email summary?",
-                    reason: "Draft Automation Creation needs a concrete destination before modeling the email step."
+                    reason: "Draft Automation Creation needs a concrete destination before modeling the email step.",
+                    answerKind: "text"
                   }
                 ]
               })
@@ -69,12 +71,14 @@ describe("createDraftAutomationCreationResult", () => {
         {
           id: "sales-spreadsheet",
           question: "Which sales spreadsheet should AutoM8 open?",
-          reason: "The workflow names a spreadsheet but not the exact source."
+          reason: "The workflow names a spreadsheet but not the exact source.",
+          answerKind: "local_spreadsheet"
         },
         {
           id: "email-recipients",
           question: "Who should receive the team email summary?",
-          reason: "Draft Automation Creation needs a concrete destination before modeling the email step."
+          reason: "Draft Automation Creation needs a concrete destination before modeling the email step.",
+          answerKind: "text"
         }
       ]
     });
@@ -86,6 +90,11 @@ describe("createDraftAutomationCreationResult", () => {
     expect(requestBody.response_format.json_schema.schema.properties.status.enum).toEqual([
       "needs_clarification",
       "draft_created"
+    ]);
+    expect(requestBody.response_format.json_schema.schema.properties.questions.items.properties.answerKind.enum).toEqual([
+      "text",
+      "local_file",
+      "local_spreadsheet"
     ]);
     expect(requestBody.messages[1].content).toContain("v1ExecutionBlockers");
     expect(fetchImpl).toHaveBeenCalledWith(
@@ -296,7 +305,8 @@ describe("createDraftAutomationCreationResult", () => {
                     {
                       id: "sales-spreadsheet",
                       question: "Which exact sales spreadsheet should AutoM8 open?",
-                      reason: "The workflow names a spreadsheet but not the exact source."
+                      reason: "The workflow names a spreadsheet but not the exact source.",
+                      answerKind: "local_spreadsheet"
                     }
                   ]
                 })
@@ -531,7 +541,8 @@ describe("createDraftAutomationCreationResult", () => {
                     {
                       id: "target-app",
                       question: "Which app should AutoM8 open?",
-                      reason: "The workflow names an action but not the exact app."
+                      reason: "The workflow names an action but not the exact app.",
+                      answerKind: "text"
                     }
                   ]
                 })
@@ -554,7 +565,8 @@ describe("createDraftAutomationCreationResult", () => {
         {
           id: "target-app",
           question: "Which app should AutoM8 open?",
-          reason: "The workflow names an action but not the exact app."
+          reason: "The workflow names an action but not the exact app.",
+          answerKind: "text"
         }
       ]
     });
@@ -768,6 +780,13 @@ function requestBodyFor(fetchImpl: ReturnType<typeof vi.fn>, callIndex = 0): {
       schema: {
         properties: {
           status: { enum: string[] };
+          questions: {
+            items: {
+              properties: {
+                answerKind: { enum: string[] };
+              };
+            };
+          };
         };
       };
     };

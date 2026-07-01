@@ -1,8 +1,12 @@
-import { DraftAutomationCreationResult, SavedAutomation } from "./automationDraft.js";
-import { AutomationRun } from "./automationRun.js";
+import type { DraftAutomationCreationResult, SavedAutomation } from "./automationDraft.js";
+import type { AutomationRun } from "./automationRun.js";
 
 export interface DraftAutomationCreationResponse {
   creationResult: DraftAutomationCreationResult;
+}
+
+export interface ClarificationAnswerPickerResponse {
+  selectedPath: string | null;
 }
 
 export interface SavedAutomationsResponse {

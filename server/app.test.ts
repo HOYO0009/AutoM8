@@ -7,8 +7,10 @@ import { Server } from "node:http";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createAutoM8App, AutoM8AppConfig } from "./app.js";
-import { SavedAutomation } from "../shared/automationDraft.js";
+import { createAutoM8App } from "./app.js";
+import type { AutoM8AppConfig } from "./app.js";
+import type { ClarificationAnswerPicker } from "./automation-builder/clarificationAnswerPicker.js";
+import type { SavedAutomation } from "../shared/automationDraft.js";
 
 const temporaryDirs: string[] = [];
 const servers: Server[] = [];
@@ -93,6 +95,71 @@ describe("saved automations API", () => {
   });
 });
 
+describe("clarification answer picker API", () => {
+  it("returns the selected local path", async () => {
+    const storagePath = createTemporaryStoragePath();
+    const clarificationAnswerPicker = fakeClarificationAnswerPicker("C:/Reports/Sales.xlsx");
+    const baseUrl = await startApp(storagePath, { clarificationAnswerPicker });
+
+    const response = await fetch(`${baseUrl}/api/clarification-answer-picker`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ answerKind: "local_spreadsheet" })
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      selectedPath: "C:/Reports/Sales.xlsx"
+    });
+    expect(clarificationAnswerPicker.pick).toHaveBeenCalledWith("local_spreadsheet");
+  });
+
+  it("returns null when the local picker is cancelled", async () => {
+    const storagePath = createTemporaryStoragePath();
+    const clarificationAnswerPicker = fakeClarificationAnswerPicker(null);
+    const baseUrl = await startApp(storagePath, { clarificationAnswerPicker });
+
+    const response = await fetch(`${baseUrl}/api/clarification-answer-picker`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ answerKind: "local_file" })
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      selectedPath: null
+    });
+    expect(clarificationAnswerPicker.pick).toHaveBeenCalledWith("local_file");
+  });
+
+  it("rejects unsupported answer kinds before opening the picker", async () => {
+    const storagePath = createTemporaryStoragePath();
+    const clarificationAnswerPicker = fakeClarificationAnswerPicker("C:/Reports/Sales.xlsx");
+    const baseUrl = await startApp(storagePath, { clarificationAnswerPicker });
+
+    const response = await fetch(`${baseUrl}/api/clarification-answer-picker`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ answerKind: "website" })
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: {
+        code: "INVALID_CLARIFICATION_ANSWER_KIND",
+        message: "Choose a supported clarification answer kind before opening a picker."
+      }
+    });
+    expect(clarificationAnswerPicker.pick).not.toHaveBeenCalled();
+  });
+});
+
 async function startApp(storagePath: string, config: AutoM8AppConfig = {}): Promise<string> {
   const app = createAutoM8App(
     { NODE_ENV: "test" },
@@ -116,6 +183,12 @@ function createTemporaryStoragePath(): string {
 
 function writeSavedAutomations(storagePath: string, savedAutomations: SavedAutomation[]): void {
   writeFileSync(storagePath, `${JSON.stringify({ savedAutomations }, null, 2)}\n`, "utf8");
+}
+
+function fakeClarificationAnswerPicker(selectedPath: string | null): ClarificationAnswerPicker {
+  return {
+    pick: vi.fn().mockResolvedValue(selectedPath)
+  };
 }
 
 function savedAutomationFixture(id: string, name: string): SavedAutomation {

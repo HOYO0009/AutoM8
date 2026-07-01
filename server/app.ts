@@ -4,6 +4,11 @@ import { fileURLToPath } from "node:url";
 
 import { createDraftAutomationCreationResult } from "./automation-builder/draftAutomationCreation.js";
 import {
+  createWindowsClarificationAnswerPicker,
+  validatePickerBackedClarificationAnswerKind
+} from "./automation-builder/clarificationAnswerPicker.js";
+import type { ClarificationAnswerPicker } from "./automation-builder/clarificationAnswerPicker.js";
+import {
   SaveAutomationError,
   createSavedAutomationStore
 } from "./automation-builder/savedAutomationStore.js";
@@ -17,6 +22,7 @@ import { validateClarificationAnswersShape } from "../shared/draftValidation.js"
 export interface AutoM8AppConfig {
   savedAutomationStoragePath?: string;
   automationRunManager?: ReturnType<typeof createAutomationRunManager>;
+  clarificationAnswerPicker?: ClarificationAnswerPicker;
 }
 
 export function createAutoM8App(env: NodeJS.ProcessEnv = process.env, config: AutoM8AppConfig = {}) {
@@ -25,6 +31,7 @@ export function createAutoM8App(env: NodeJS.ProcessEnv = process.env, config: Au
     storagePath: config.savedAutomationStoragePath
   });
   const automationRunManager = config.automationRunManager ?? createDefaultAutomationRunManager(env);
+  const clarificationAnswerPicker = config.clarificationAnswerPicker ?? createWindowsClarificationAnswerPicker();
 
   app.use(express.json({ limit: "64kb" }));
 
@@ -40,6 +47,16 @@ export function createAutoM8App(env: NodeJS.ProcessEnv = process.env, config: Au
       });
 
       response.json({ creationResult });
+    } catch (error) {
+      sendApiError(response, error);
+    }
+  });
+
+  app.post("/api/clarification-answer-picker", async (request, response) => {
+    try {
+      const answerKind = validatePickerBackedClarificationAnswerKind(request.body?.answerKind);
+      const selectedPath = await clarificationAnswerPicker.pick(answerKind);
+      response.json({ selectedPath });
     } catch (error) {
       sendApiError(response, error);
     }

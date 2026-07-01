@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 
-import {
+import type {
   ClarificationAnswer,
   ClarificationQuestion,
   DraftAutomation

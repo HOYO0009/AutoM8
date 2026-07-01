@@ -1,11 +1,11 @@
-import {
+import { isClarificationAnswerKind, nodeTypes } from "./automationDraft.js";
+import type {
   ClarificationAnswer,
   ClarificationQuestion,
   DraftAutomation,
   DraftAutomationCreationResult,
   DraftNodeType,
   DraftStepDetails,
-  nodeTypes,
   SavedAutomation
 } from "./automationDraft.js";
 
@@ -18,6 +18,7 @@ export type DraftValidationStage =
   | "clarification-question-id"
   | "clarification-question-question"
   | "clarification-question-reason"
+  | "clarification-question-answer-kind"
   | "clarification-answer-shape"
   | "clarification-answer-question-id"
   | "clarification-answer-question"
@@ -190,7 +191,7 @@ function validateClarificationQuestion(value: unknown): ClarificationQuestion {
     throw new DraftValidationError("clarification-question-shape");
   }
 
-  const { id, question, reason } = value;
+  const { id, question, reason, answerKind } = value;
   if (typeof id !== "string" || !id.trim()) {
     throw new DraftValidationError("clarification-question-id");
   }
@@ -200,11 +201,15 @@ function validateClarificationQuestion(value: unknown): ClarificationQuestion {
   if (typeof reason !== "string" || !reason.trim()) {
     throw new DraftValidationError("clarification-question-reason");
   }
+  if (!isClarificationAnswerKind(answerKind)) {
+    throw new DraftValidationError("clarification-question-answer-kind");
+  }
 
   return {
     id: id.trim(),
     question: question.trim(),
-    reason: reason.trim()
+    reason: reason.trim(),
+    answerKind
   };
 }
 

@@ -5,6 +5,7 @@ import {
   createDraftAutomationCreationResult,
   createSavedAutomationEditDraft,
   deleteSavedAutomation,
+  pickClarificationAnswer,
   replaceSavedAutomation
 } from "./autom8Api";
 
@@ -50,6 +51,43 @@ describe("autom8Api draft automation creation", () => {
   });
 });
 
+describe("autom8Api clarification answer picker", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("requests a picker-backed clarification answer", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      jsonResponse({
+        selectedPath: "C:/Reports/Sales.xlsx"
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const selectedPath = await pickClarificationAnswer("local_spreadsheet");
+
+    expect(selectedPath).toBe("C:/Reports/Sales.xlsx");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/clarification-answer-picker",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ answerKind: "local_spreadsheet" })
+      })
+    );
+  });
+
+  it("returns null when the local picker is cancelled", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      jsonResponse({
+        selectedPath: null
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(pickClarificationAnswer("local_file")).resolves.toBeNull();
+  });
+});
+
 describe("autom8Api saved automation editing", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -65,7 +103,8 @@ describe("autom8Api saved automation editing", () => {
             {
               id: "slack-channel",
               question: "Which Slack channel should AutoM8 use?",
-              reason: "The edit asks for Slack without a concrete destination."
+              reason: "The edit asks for Slack without a concrete destination.",
+              answerKind: "text"
             }
           ]
         }

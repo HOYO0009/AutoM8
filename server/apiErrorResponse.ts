@@ -1,5 +1,6 @@
 import { Response } from "express";
 
+import { ClarificationAnswerPickerError } from "./automation-builder/clarificationAnswerPicker.js";
 import { DraftAutomationCreationError } from "./automation-builder/draftAutomationCreation.js";
 import { SaveAutomationError } from "./automation-builder/savedAutomationStore.js";
 import { ExecutableActionPlanningError } from "./automation-runner/executableActionPlanner.js";
@@ -32,6 +33,14 @@ function toApiError(error: unknown): {
       message: error.message,
       status: error.status,
       diagnostics: error.diagnostics
+    };
+  }
+
+  if (error instanceof ClarificationAnswerPickerError) {
+    return {
+      code: error.code,
+      message: error.message,
+      status: error.status
     };
   }
 
