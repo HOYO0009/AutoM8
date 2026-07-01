@@ -1,17 +1,1 @@
-{
-  "0": "Draft Automation Builder",
-  "1": "Documentation And Domain",
-  "2": "React Workspace UI",
-  "3": "Executable Action Planning",
-  "4": "Project Configuration",
-  "5": "Frontend API Client",
-  "6": "Automation Run State",
-  "7": "Desktop Driver Testing",
-  "8": "Non-Deterministic Runner",
-  "9": "Client TypeScript Config",
-  "10": "Server TypeScript Config",
-  "11": "Automation Graph Projection",
-  "12": "HTML App Shell",
-  "13": "Vite Configuration",
-  "14": "Vitest Configuration"
-}
+{"0": "Draft Automation Builder", "1": "Documentation And Domain", "2": "React Workspace UI", "3": "Executable Action Planning", "4": "Project Configuration", "5": "Frontend API Client", "6": "Automation Run State", "7": "Desktop Driver Testing", "8": "Non-Deterministic Runner", "9": "Client TypeScript Config", "10": "Server TypeScript Config", "11": "Automation Graph Projection", "12": "HTML App Shell", "13": "Vite Configuration", "14": "Vitest Configuration", "15": "Community 15", "16": "Community 16", "17": "Community 17", "18": "Community 18", "19": "Community 19", "20": "Community 20", "21": "Community 21", "22": "Community 22"}

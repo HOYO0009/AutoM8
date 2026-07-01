@@ -1,6 +1,6 @@
 import { Response } from "express";
 
-import { DraftAutomationCreationError } from "./automation-builder/draftGenerator.js";
+import { DraftAutomationCreationError } from "./automation-builder/draftAutomationCreation.js";
 import { SaveAutomationError } from "./automation-builder/savedAutomationStore.js";
 import { ExecutableActionPlanningError } from "./automation-runner/executableActionPlanner.js";
 import { RunAutomationError } from "./automation-runner/automationRunStore.js";

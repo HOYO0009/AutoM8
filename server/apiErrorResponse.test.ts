@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Response } from "express";
 
-import { DraftAutomationCreationError } from "./automation-builder/draftGenerator.js";
+import { DraftAutomationCreationError } from "./automation-builder/draftAutomationCreation.js";
 import { sendApiError } from "./apiErrorResponse.js";
 
 describe("sendApiError", () => {

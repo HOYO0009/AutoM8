@@ -6,4 +6,4 @@ Status must be `Used` or `Planned`. `Planned` requires a named TODO item, vertic
 
 | Pattern | Category | Status | Where / Planned slice | Why | Evidence |
 |---|---|---|---|---|---|
-| Adapter | Structural | Used | Shared OpenRouter structured-output boundary. | Translates OpenRouter chat-completion JSON-schema requests and responses into AutoM8's local structured-output result contract. | `server/llm/openRouterStructuredOutput.ts`, `server/automation-builder/draftGenerator.ts`, `server/automation-runner/executableActionPlanner.ts`, `server/automation-runner/nonDeterministicDesktopTaskRunner.ts` |
+| Adapter | Structural | Used | Shared OpenRouter structured-output boundary. | Translates OpenRouter chat-completion JSON-schema requests and responses into AutoM8's local structured-output result contract. | `server/llm/openRouterStructuredOutput.ts`, `server/automation-builder/draftAutomationCreation.ts`, `server/automation-runner/executableActionPlanner.ts`, `server/automation-runner/nonDeterministicDesktopTaskRunner.ts` |

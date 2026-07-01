@@ -2,7 +2,7 @@ import express from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { createDraftAutomationCreationResult } from "./automation-builder/draftGenerator.js";
+import { createDraftAutomationCreationResult } from "./automation-builder/draftAutomationCreation.js";
 import {
   SaveAutomationError,
   createSavedAutomationStore

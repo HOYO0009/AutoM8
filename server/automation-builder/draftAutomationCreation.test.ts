@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { SavedAutomation } from "../../shared/automationDraft.js";
-import { createDraftAutomationCreationResult } from "./draftGenerator.js";
+import { createDraftAutomationCreationResult } from "./draftAutomationCreation.js";
 
 describe("createDraftAutomationCreationResult", () => {
   it("rejects an empty prompt", async () => {
